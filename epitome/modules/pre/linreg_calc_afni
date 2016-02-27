@@ -112,6 +112,15 @@ for SESS in ${DIR_SESS}; do
                 -final quintic
         fi
     fi
+
+    # remove junk left behind by align_epi_anat
+    rm *.BRIK
+    rm *.HEAD
+    rm *WarpDrive.log
+    rm *Xaff12.1D
+    rm *Xat.1D
+    rm *shft.1D
+
 done
 
 EOF
