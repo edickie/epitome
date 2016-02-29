@@ -89,6 +89,9 @@ for SESS in ${DIR_SESS}; do
                 3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/SESS01/reg_EPI_to_T1.nii.gz
             fi
         fi
+
+        # remove template
+        rm template+tlrc*
     fi
 
     # Create reg_T1_to_EPI
