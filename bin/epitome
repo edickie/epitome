@@ -506,7 +506,7 @@ def main():
     dir_hcp_data = epi.config.find_hcp_data()
     dir_hcp_tools = epi.config.find_hcp_tools()
     dir_workbench = epi.config.find_workbench()
-    if not all([dir_hcp_data, dir_hcp_tools, dir_workbench]) :
+    if all([dir_hcp_data, dir_hcp_tools, dir_workbench]) :
         HCPMODE = True
         print('Running epitome - with HCP extras!. Select experiment.')
     else:
