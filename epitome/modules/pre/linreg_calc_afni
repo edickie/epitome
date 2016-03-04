@@ -52,9 +52,6 @@ for SESS in ${DIR_SESS}; do
             -OK_maxite \
             -init_xform AUTO_CENTER
 
-        # remove template
-        rm template+tlrc*
-
         align_epi_anat.py \
             -anat anat_T1_brain+orig \
             -epi anat_EPI_brain+orig \
@@ -68,14 +65,6 @@ for SESS in ${DIR_SESS}; do
             -tlrc_apar anat_T1_brain+tlrc \
             -ex_mode quiet \
             -cost ${COST}
-
-        # remove junk left behind by align_epi_anat
-        rm *.BRIK
-        rm *.HEAD
-        rm *WarpDrive.log
-        rm *Xaff12.1D
-        rm *Xat.1D
-        rm *shft.1D
 
         # Move outputs from /tmp back into data folders folders.
         mv anat_EPI_brainEPI_to_T1_tlrc_mat.aff12.1D ${DIR}/${SESS}/mat_EPI_to_TAL.aff12.1D
@@ -101,10 +90,19 @@ for SESS in ${DIR_SESS}; do
             fi
         fi
 
+        # remove temporary files
+        rm template+tlrc*
+        rm *.BRIK
+        rm *.HEAD
+        rm *WarpDrive.log
+        rm *Xaff12.1D
+        rm *Xat.1D
+        rm *shft.1D
     fi
 
     # Create reg_T1_to_EPI
     if [ ! -f ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz ]; then
+
         # generate EPI_to_T1
         if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
             3dAllineate \
