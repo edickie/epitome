@@ -31,15 +31,23 @@ for SESS in ${DIR_SESS}; do
 
     if [ ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz ]; then
 
-        # Copy of EPI and MNI brain for @auto_tlrc.
-        if [ ! -f anat_EPI_brain+orig* ]; then 3dcopy ${EPI_BRAIN} anat_EPI_brain; fi
-        if [ ! -f template* ]; then 3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template; fi
+        # copy of EPI in native space
+        if [ ! -f anat_EPI_brain+orig* ]; then
+            3dcopy ${EPI_BRAIN} anat_EPI_brain+orig
+        fi
+
+        # copy of MNI brain in MNI space
+        if [ ! -f template+tlrc* ]; then
+            3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template+tlrc
+        fi
+
+
+        # register to the session T1 if exists, else, use the first session
         if [ ! -f anat_T1_brain+orig* ]; then
-            # register to the session T1 if exists, else, use the first session.
             if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
-                3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain
+                3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain+orig
             else
-                3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain
+                3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain+orig
             fi
         fi
 
@@ -81,8 +89,8 @@ for SESS in ${DIR_SESS}; do
             3dcopy anat_T1_brain+tlrc ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz
         fi
 
+        # copy to each T1 session if exists, else, use the first session
         if [ ! -f ${DIR}/SESS01/reg_EPI_to_T1.nii.gz ]; then
-            # copy the session T1 registration if exists, else, use the first session.
             if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
                 3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz
             else
@@ -91,7 +99,6 @@ for SESS in ${DIR_SESS}; do
         fi
 
         # remove temporary files
-        rm template+tlrc*
         rm *.BRIK
         rm *.HEAD
         rm *WarpDrive.log
@@ -122,8 +129,6 @@ for SESS in ${DIR_SESS}; do
                 -final quintic
         fi
     fi
-
-
 done
 
 EOF
