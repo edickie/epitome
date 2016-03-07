@@ -21,6 +21,7 @@ DETAILS:
 """
 
 import os, sys
+import shutil
 import random
 import string
 import subprocess
@@ -29,10 +30,10 @@ from epitome.docopt import docopt
 
 def write_script(name, line):
     """
-    Writes a line to the specified script.
+    Writes a single command to a queue-submittable script.
     """
     f = open(name, 'wb')
-    f.write(line)
+    f.write('#!/bin/bash\n{}\n'.format(line))
     f.close()
 
 def main():
@@ -45,9 +46,9 @@ def main():
 
     # make the .jobs and .logs files
     if os.path.isdir('.jobs') == True:
-        os.rmdir('.jobs')
+        shutil.rmtree('.jobs')
     if os.path.isdir('.logs') == True:
-        os.rmdir('.logs')
+        shutil.rmtree('.logs')
     os.mkdir('.jobs')
     os.mkdir('.logs')
 
