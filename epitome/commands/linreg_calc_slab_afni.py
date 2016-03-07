@@ -16,10 +16,10 @@ def run(input_name):
 
         # set the cost function option
         print('\nCost function: (see AFNI align_EPI_anat.py for help)')
-        cost_fxns = {'ls' : '= Least Squares [Pearson Correlation]', 
-                     'mi' : '= Mutual Information [H(b)+H(s)-H(b,s)]', 
-                     'crM' : '= Correlation Ratio (Symmetrized*)', 
-                     'nmi' : '= Normalized MI [H(b,s)/(H(b)+H(s))]', 
+        cost_fxns = {'ls' : '= Least Squares [Pearson Correlation]',
+                     'mi' : '= Mutual Information [H(b)+H(s)-H(b,s)]',
+                     'crM' : '= Correlation Ratio (Symmetrized*)',
+                     'nmi' : '= Normalized MI [H(b,s)/(H(b)+H(s))]',
                      'hel' : '= Hellinger metric',
                      'crA' : '= Correlation Ratio (Symmetrized+)',
                      'crU' : '= Correlation Ratio (Unsym)',
@@ -43,6 +43,6 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = '. ${{DIR_PIPE}}/epitome/modules/pre/linreg_calc_slab_afni {} {} {}'.format(
+    line = '. ${{DIR_PIPE}}/modules/pre/linreg_calc_slab_afni {} {} {}'.format(
                                                          quality, cost, reg_dof)
     return line, output

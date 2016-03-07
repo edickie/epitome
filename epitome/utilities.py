@@ -411,6 +411,7 @@ def IOTA(junk):
 def init_shell(path, expt):
     """
     Gets all of the subjects and prints them as a BASH friendly variable.
+    TO DEPRICATE.
     """
     subjects = epi.utilities.get_subj(os.path.join(path, expt))
     output = '"'

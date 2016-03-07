@@ -50,9 +50,7 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${{DIR_PIPE}}/epitome/modules/pre/filter ' 
-                          '{} {} {} {} {} {} {} {} {} {} {}').format(
-                           str(input_name), str(polort), diff, lag, 
-                                sq, std, gm, dv, anaticor, compcor, mask_prefix)
+    line = ('. ${{DIR_PIPE}}/modules/pre/filter {} {} {} {} {} {} {} {} {} {} {}').format(
+            input_name, polort, diff, lag, sq, std, gm, dv, anaticor, compcor, mask_prefix)
 
     return line, output

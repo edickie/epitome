@@ -27,12 +27,12 @@ def get_modules(dir_pipe, moduletype='pre', used=[]):
     """
 
     # try to import a list of the module types
-    dir_modules = os.path.join(dir_pipe, 'epitome/modules', str(moduletype))
+    dir_modules = os.path.join(dir_pipe, 'modules', str(moduletype))
     try:
         module_list = [f for f in os.listdir(dir_modules)
                                if os.path.isfile(os.path.join(dir_modules, f))]
     except:
-        module_types = os.listdir(os.path.join(dir_pipe, 'epitome/modules'))
+        module_types = os.listdir(os.path.join(dir_pipe, 'modules'))
         print('Invalid module type. Available:\n')
         for m in module_types:
             print('    ' + str(m))
@@ -131,7 +131,7 @@ def help_query():
     dir_pipe = epi.config.find_epitome()
 
     # ask which module type we want to look at
-    module_types = os.listdir(os.path.join(dir_pipe, 'epitome/modules'))
+    module_types = os.listdir(os.path.join(dir_pipe, 'modules'))
 
     try:
         response = epi.utilities.selector_list(module_types)
@@ -602,14 +602,12 @@ def main():
             'epi-fsrecon ${DIR_DATA} ${DIR_EXPT} ${DIR_DATA}/${DIR_EXPT}/${PROC}\n'
             '## Freesurfer to HCP conversion\n'
             'epi-fsrecon2hcp ${DIR_DATA} ${DIR_EXPT} ${DIR_DATA}/${DIR_EXPT}/${PROC}\n'
-            '. ${DIR_PIPE}/epitome/modules/hcp/hcpexport '
-            '${DIR_DATA} ${DIR_EXPT} >> ${DIR_DATA}/${DIR_EXPT}/${PROC}\n\n')
+            '. ${DIR_PIPE}/modules/hcp/hcpexport ${DIR_DATA} ${DIR_EXPT} >> ${DIR_DATA}/${DIR_EXPT}/${PROC}\n\n')
     else :
         # if no hcp pipe env defined, use fs export
         f.write('## Freesurfer\n'
             'epi-fsrecon ${DIR_DATA} ${DIR_EXPT} ${DIR_DATA}/${DIR_EXPT}/${PROC}\n'
-            '. ${DIR_PIPE}/epitome/modules/freesurfer/fsexport '
-            '${DIR_DATA} ${DIR_EXPT} >> ${DIR_DATA}/${DIR_EXPT}/${PROC}\n\n')
+            '. ${DIR_PIPE}/modules/freesurfer/fsexport ${DIR_DATA} ${DIR_EXPT} >> ${DIR_DATA}/${DIR_EXPT}/${PROC}\n\n')
 
     f.write('## Begin Pipeline\n'
             'for SUB in ${{SUBJECTS}}; do\n\n'

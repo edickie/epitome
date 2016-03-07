@@ -22,7 +22,7 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = '. ${{DIR_PIPE}}/epitome/modules/pre/motion_deskull {} {} {}'.format(
+    line = '. ${{DIR_PIPE}}/modules/pre/motion_deskull {} {} {}'.format(
                                              input_name, masking, mask_method)
 
     return line, output

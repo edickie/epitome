@@ -18,7 +18,7 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = '. ${{DIR_PIPE}}/epitome/modules/pre/scale {} {} '.format(
+    line = '. ${{DIR_PIPE}}/modules/pre/scale {} {} '.format(
                                                input_name, normalization)
 
     return line, output

@@ -11,7 +11,7 @@ def run(input_name):
     try:
         print('\nSelect a letter:')
         opt_list = epi.utilities.selector_list(['a', 'b', 'c'])
-        
+
         print('\nInput a float:')
         opt_float = epi.utilities.selector_float()
 
@@ -20,7 +20,7 @@ def run(input_name):
 
         print('\nSelect a name:')
         mode = epi.utilities.selector_dict(
-                   {'Joseph': ': Master of the Universe', 
+                   {'Joseph': ': Master of the Universe',
                     'Dale': ': Assistant Master of the Universe'})
 
     # if we messed any of these up, we return None
@@ -28,12 +28,8 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/template ' + 
-                                     str(input_name) + ' ' +
-                                     str(opt_list) + ' ' +
-                                     str(opt_float) + ' ' +
-                                     str(opt_int) + ' ' +
-                                     str(opt_dict))
+    line = '. ${{DIR_PIPE}}/modules/pre/template {} {} {} {} {}'.format(
+                       input_name, opt_list, opt_float, opt_int, opt_dict)
 
     return line, output
 

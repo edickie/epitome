@@ -19,6 +19,5 @@ def run():
     except ValueError as ve:
         return '', None
 
-    line = '. ${{DIR_PIPE}}/epitome/modules/pre/init_basic {} {}'.format(
-    	                                                   quality, deltr)
+    line = '. ${{DIR_PIPE}}/modules/pre/init_basic {} {}'.format(quality, deltr)
     return line, output

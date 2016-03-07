@@ -36,8 +36,8 @@ def run(input_name):
     except ValueError as ve:
         return '', None
 
-    line = '. ${{DIR_PIPE}}/epitome/modules/pre/unwarp {} {} {} {} {} {} {} {}'.format(
-                        input_name, method, unwarpdir, dwell, deltate, mag, real, imag)
+    line = '. ${{DIR_PIPE}}/modules/pre/unwarp {} {} {} {} {} {} {} {}'.format(
+                 input_name, method, unwarpdir, dwell, deltate, mag, real, imag)
 
     return line, output
 
