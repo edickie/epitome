@@ -3,6 +3,11 @@
 Takes a proclist created using epitome run and submits it to the installed
 Oracle Sun Grid Engine using qsub.
 
+Some jobs are written to scripts in a .jobs folder in the current directory. If
+a .jobs folder already exists, it is removed.
+
+Logs are written to a .logs folder in the current directory.
+
 Usage:
     epi-queue <proclist> <queue>
 
@@ -22,6 +27,14 @@ import subprocess
 import epitome as epi
 from epitome.docopt import docopt
 
+def write_script(name, line):
+    """
+    Writes a line to the specified script.
+    """
+    f = open(name, 'wb')
+    f.write(line)
+    f.close()
+
 def main():
     arguments = docopt(__doc__)
     proclist  = arguments['<proclist>']
@@ -29,6 +42,14 @@ def main():
 
     f = open(proclist)
     f = f.read()
+
+    # make the .jobs and .logs files
+    if os.path.isdir('.jobs') == True:
+        os.rmdir('.jobs')
+    if os.path.isdir('.logs') == True:
+        os.rmdir('.logs')
+    os.mkdir('.jobs')
+    os.mkdir('.logs')
 
     # used to keep freesurfer + qc jobs distinct
     u_id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
@@ -47,7 +68,9 @@ def main():
         # freesurfer recon-alls
         if line.startswith('recon-all'):
             fsname = 'epi-fs_{}_{}'.format(u_id, str(i))
-            log = '{}.log'.format(fsname)
+            log = '.logs/{}'.format(fsname)
+            script = '.jobs/{}'.format(fsname)
+            write_script(script, line)
             cmd = 'qsub -o {} -S /bin/bash -V -q {} -cwd -N {} -l mem_free=6G,virtual_free=6G -j y {}'.format(
                   log, queue, fsname, script)
             fslist.append(fsname)
@@ -55,24 +78,28 @@ def main():
         # freesurfer exports
         elif line.startswith('epi-fsexport'):
             exname = 'epi-fsexport_{}'.format(u_id)
-            log = '{}.log'.format(exname)
+            log = '.logs/{}'.format(exname)
+            script = '.jobs/{}'.format(exname)
+            write_script(script, line)
             cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
                   log, queue, ",".join(fslist), exname, script)
 
         # preprocessing
         elif line.split('/')[-1].startswith('cmd'):
             cmdname = 'epi-cmd_{}'.format(name)
-            log = '{}.log'.format(cmdname)
+            log = '.logs/{}'.format(cmdname)
             cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
-                  log, queue, exname, cmdname, script)
+                  log, queue, exname, cmdname, line)
             sublist.append(cmdname)
 
         # qc
         elif line.startswith('epi-qc'):
             qcname = 'epi-qc_{}_{}'.format(u_id, str(i))
-            log = '{}.log'.format(qcname)
+            log = '.logs/{}'.format(qcname)
+            script = '.jobs/{}'.format(qcname)
+            write_script(script, line)
             cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
-                  log, queue, hold=",".join(sublist), qcname, script)
+                  log, queue, ",".join(sublist), qcname, script)
 
         else:
             print('ERROR: Failed to parse {}'.format(line))

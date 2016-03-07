@@ -677,12 +677,11 @@ def main():
             flag = 1
 
     # add each subject to the proclist, close the subject loop
-    txt = ('\nchmod 750 ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}}\n'
-           '# append this subject to the process queue\n'
-           'echo bash ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}} >> ${{DIR_DATA}}/${{DIR_EXPT}}/${{PROC}}\n'
-           'done\n\n'
-           '# calls to QC programs\n'.format(cmd=cmd, proc=proc))
-    f.write(txt)
+    f.write('\nchmod 750 ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}}\n'
+            '# append this subject to the process queue\n'
+            'echo ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}} >> ${{DIR_DATA}}/${{DIR_EXPT}}/${{PROC}}\n'
+            'done\n\n'
+            '# calls to QC programs\n'.format(cmd=cmd, proc=proc))
 
     # add user-defined qc runs
     p_list = [] # keeps track of our command-list
@@ -715,7 +714,7 @@ def main():
     print('\nSaving master script & generating subject-specific scripts.')
     f.write('\n')
     f.close()
-    os.chmod(os.path.join(DIR_DATA, expt, master), 0750)
+    os.chmod(os.path.join(DIR_DATA, expt, master), 0755)
     os.system('bash ' + os.path.join(DIR_DATA, expt, master))
 
     # print some final remarks
