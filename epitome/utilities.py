@@ -123,12 +123,14 @@ def selector_dict(item_dict):
 def get_subj(dir):
     """
     Gets all folder names (i.e., subjects) in a directory (of subjects).
+    Removes hidden folders.
     """
     subjects = []
     for subj in os.walk(dir).next()[1]:
         if os.path.isdir(os.path.join(dir, subj)) == True:
             subjects.append(subj)
     subjects.sort()
+    subjects = filter(lambda x: x.startswith('.') == False, subjects)
     return subjects
 
 def has_permissions(directory):
@@ -420,5 +422,3 @@ def init_shell(path, expt):
 
     os.system('echo ' + str(output))
 
-if __name__ == "__main__":
-    init_shell(sys.argv[1], sys.argv[2])

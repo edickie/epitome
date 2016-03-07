@@ -78,7 +78,7 @@ def main():
             fslist.append(fsname)
 
         # freesurfer to hcp transformations (depends on freesurfer)
-        if line.startswith('fs2hcp'):
+        elif line.startswith('fs2hcp'):
             fs2hcpname = 'epi-fs2hcp_{}_{}'.format(u_id, str(i))
             log = '.logs/{}'.format(fs2hcpname)
             script = '.jobs/{}'.format(fs2hcpname)
