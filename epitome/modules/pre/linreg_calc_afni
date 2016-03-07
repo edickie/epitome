@@ -29,7 +29,15 @@ for SESS in ${DIR_SESS}; do
         EPI_BRAIN=`echo ${DIR}/${SESS}/anat_EPI_brain.nii.gz`
     fi
 
-    if [ ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz ]; then
+    # figure out if we should use each session's T1, or just the first session
+    if [ $(ls -l ${DIR} | grep ^d | wc -l) -eq $(ls -l ${DIR_T1} | grep ^d | wc -l) ]; then
+        multisession=1
+    else
+        multisession=0
+    fi
+
+    # only run if the output file reg_EPI_to_T1 does not exist in the expected session (multisession or all to 1st session).
+    if [ ${multisession} -eq 1 && ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz ] || [ ${multisession} -eq 0 && ! -f ${DIR}/SESS01/reg_EPI_to_T1.nii.gz ]; then
 
         # copy of EPI in native space
         if [ ! -f anat_EPI_brain+orig* ]; then
@@ -41,10 +49,9 @@ for SESS in ${DIR_SESS}; do
             3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template+tlrc
         fi
 
-
         # register to the session T1 if exists, else, use the first session
         if [ ! -f anat_T1_brain+orig* ]; then
-            if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+            if [ ${multisession} -eq 1 ]; then
                 3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain+orig
             else
                 3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain+orig
@@ -91,7 +98,7 @@ for SESS in ${DIR_SESS}; do
 
         # copy to each T1 session if exists, else, use the first session
         if [ ! -f ${DIR}/SESS01/reg_EPI_to_T1.nii.gz ]; then
-            if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+            if [ ${multisession} -eq 1 ]; then
                 3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz
             else
                 3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/SESS01/reg_EPI_to_T1.nii.gz
@@ -111,7 +118,7 @@ for SESS in ${DIR_SESS}; do
     if [ ! -f ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz ]; then
 
         # generate EPI_to_T1
-        if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+        if [ ${multisession} -eq 1 ]; then
             3dAllineate \
                 -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
                 -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
@@ -132,3 +139,4 @@ for SESS in ${DIR_SESS}; do
 done
 
 EOF
+
