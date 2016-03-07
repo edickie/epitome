@@ -262,22 +262,6 @@ for SESS in ${DIR_SESS}; do
                     ${SESS}/PARAMS/phys.${ID}.${NUM}.1D\' > \
                     ${SESS}/PARAMS/det.phys.${ID}.${NUM}.1D
             fi
-
-            # DVARS (Power et. al Neuroimage 2012)
-            3dcalc \
-                -a ${SESS}/func_det.${ID}.${NUM}.nii.gz \
-                -b 'a[0,0,0,-1]' \
-                -expr '(a - b)^2' \
-                -prefix ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz
-
-            3dmaskave \
-                -mask ${SESS}/anat_EPI_mask.nii.gz \
-                -quiet ${SESS}/func_tmp_backdif.${ID}.${NUM}.nii.gz \
-                > ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D
-
-            1deval \
-                -a ${SESS}/PARAMS/tmp_backdif.${ID}.${NUM}.1D \
-                -expr 'sqrt(a)' > ${SESS}/PARAMS/DVARS.${ID}.${NUM}.1D
         fi
 
         # initialize filter command
