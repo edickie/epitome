@@ -37,7 +37,7 @@ for SESS in ${DIR_SESS}; do
     fi
 
     # only run if the output file reg_EPI_to_T1 does not exist in the expected session (multisession or all to 1st session).
-    if [ ${multisession} -eq 1 && ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz ] || [ ${multisession} -eq 0 && ! -f ${DIR}/SESS01/reg_EPI_to_T1.nii.gz ]; then
+    if [ ${multisession} -eq 1 && ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz -o ${multisession} -eq 0 && ! -f ${DIR}/SESS01/reg_EPI_to_T1.nii.gz ]; then
 
         # copy of EPI in native space
         if [ ! -f anat_EPI_brain+orig* ]; then
