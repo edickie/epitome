@@ -11,5 +11,5 @@ def run(expt, clean):
     print('\n *** Adding DELETE EVERYTHING to the cleanup Queue! ***')
 
     fname = os.path.join(dir_data, expt, clean)
-    line = ('. {}/modules/cleanup/del_everything >> {}'.format(dir_pipe, fname)
+    line = '. {}/modules/cleanup/del_everything >> {}'.format(dir_pipe, fname)
     os.system(line)
