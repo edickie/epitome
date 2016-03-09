@@ -7,29 +7,46 @@ Usage:
     epi-qc-fs2hcp [options] <QCmode>
 
 Arguments:
-  <QCmode>                 Type of QC to do ("MNIfsaverage32k" or "native")
+  <QCmode>                 Type of QC to do ("MNIfsaverage32k","native" or "func2cifti")
 
 Options:
   --snaps-only             Do not write the index pages, only do subject pics
   --index-only             Only write the index pages, do not take subject pics
   --qcdir PATH             Full path to location of QC directory
   --subject STR            Subject ID to process
+  --NameOffMRI STR         For func2cifti, "NameoffMRI" option given
+  --SmoothingFWHM STR      For func2cifti, "SmoothingFWHM" option given
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
   --help                   Print help
 
 DETAILS
-Make pretty pictures
+This makes pretty pictures of your hcp views using connectome workbenches "show scene" commands
+It pastes the pretty pictures together into some .html QC pages
 
-QC is put in $HCP_DATA_PATH/qc_fsaverage32k/ by default
+There are three modes right now
+  + native
+     ++ views of subject brains in "native" space i.e. the "raw" converted freesurfer outputs
+     ++ Same information as the freesurfer QC tools
+  + MNIfsaverage32k
+     ++ views for the MNI transformed brains and fsaverage_LR surfaces (32k meshes)
+     ++ this is the "space" where fMRI analysis is done
+  + func2cifti
+     ++ views of the functional data that has been projected to the "cifti space"
+     ++ used to QC the volume to cortex mapping step - as well as subcortical resampling
+     ++ this option requires that 2 more arguments are specified
+        ++ --NameOffMRI and --SmoothingFWHM -
+        ++ these should match what was input in the func2hcp command
 
-To do list:
- + split some into a line of images
- + dict of exected pics
- DTSERIESFILE --> the dtseries output file
- SBREFFILE --> rhw SBref
- + move to scene
+Also this function works by writting a temporary file into the HCP_DATA directory,
+therefore, write permission in the HCP_DATA directory is required.
+
+By default, all subjects in the directory will be included.
+The "--subject" option can be used to run only the specified subject id for testing and debugging.
+
+Requires connectome workbench (i.e. wb_command and imagemagick)
+
 
 Written by Erin W Dickie, Feb 2016
 """
@@ -51,6 +68,8 @@ snaps_only      = arguments['--snaps-only']
 index_only      = arguments['--index-only']
 subid           = arguments['--subject']
 qcdir           = arguments['--qcdir']
+name_of_fmri    = arguments['--NameOffMRI']
+fwhm            = arguments['--SmoothingFWHM']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -67,14 +86,14 @@ QCmodes = {
     'MNIfsaverage32k':{
         "TemplateFile":'MNIfsaverage32k_template.scene',
         "scene_list" :  [
-            {"Name": "aparc1",            "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
-            {"Name": "VolSurfOutlineAx",  "MakeIndex": True,  "SplitHorizontal" : True,"Keep":True},
-            {"Name": "VolSurfOutlineCor", "MakeIndex": False, "SplitHorizontal" : True,"Keep":True},
-            {"Name": "VolSurfOutlineSag", "MakeIndex": True, "SplitHorizontal" : True,"Keep":True},
-            {"Name": "AllLeft",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "AllRight",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "AllVentral",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "AllDorsal",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False}],
+            {"Idx": 1, "Name": "aparc1",            "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 2, "Name": "VolSurfOutlineAx",  "MakeIndex": True,  "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 3, "Name": "VolSurfOutlineCor", "MakeIndex": False, "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 4, "Name": "VolSurfOutlineSag", "MakeIndex": True, "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 5, "Name": "AllLeft",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 6, "Name": "AllRight",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 7, "Name": "AllVentral",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 8, "Name": "AllDorsal",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False}],
         "montage_list" : [{"Name": "CombinedView",
                        "Pics":["AllLeft","AllRight","AllDorsal","AllVentral"],
                        "Layout":"4x1",
@@ -83,18 +102,35 @@ QCmodes = {
     'native':{
         "TemplateFile":'native_template.scene',
         "scene_list" :  [
-            {"Name": "aparc1",            "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
-            {"Name": "VolSurfOutlineAx",  "MakeIndex": True,  "SplitHorizontal" : True,"Keep":True},
-            {"Name": "VolSurfOutlineCor", "MakeIndex": False, "SplitHorizontal" : True,"Keep":True},
-            {"Name": "VolSurfOutlineSag", "MakeIndex": True, "SplitHorizontal" : True,"Keep":True},
-            {"Name": "AllLeft",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "AllRight",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "AllVentral",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "AllDorsal",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Name": "thickness",          "MakeIndex": True,  "SplitHorizontal" : True, "Keep": True}],
+            {"Idx": 1, "Name": "aparc1",            "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 2, "Name": "VolSurfOutlineAx",  "MakeIndex": True,  "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 3, "Name": "VolSurfOutlineCor", "MakeIndex": False, "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 4, "Name": "VolSurfOutlineSag", "MakeIndex": True, "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 5, "Name": "AllLeft",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 6, "Name": "AllRight",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 7, "Name": "AllVentral",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 8, "Name": "AllDorsal",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
+            {"Idx": 9, "Name": "thickness",          "MakeIndex": True,  "SplitHorizontal" : True, "Keep": True}],
         "montage_list" : [{"Name": "CombinedView",
                        "Pics":["AllLeft","AllRight","AllDorsal","AllVentral"],
                        "Layout":"4x1",
+                       "MakeIndex": True}]
+    },
+    'func2cifti':{
+        "TemplateFile":'func2cifti_template.scene',
+        "scene_list" :  [
+            {"Idx": 7, "Name": "funcVolPialCor", "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 8, "Name": "VolFuncPialAx",  "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 9, "Name": "volfuncpialSag",   "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 2, "Name": "dtDorsal",  "MakeIndex": False,  "SplitHorizontal" : False,"Keep":False},
+            {"Idx": 3, "Name": "dtVentral", "MakeIndex": False, "SplitHorizontal" : False,"Keep":False},
+            {"Idx": 4, "Name": "dfVolCor", "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 5, "Name": "dtVolSag",  "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 6, "Name": "dtVolAx",  "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 1, "Name": "dtLat",     "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True}],
+        "montage_list" : [{"Name": "DorsalVental",
+                       "Pics":["dtDorsal","dtVentral"],
+                       "Layout":"2x1",
                        "MakeIndex": True}]
     }
 }
@@ -159,6 +195,13 @@ def write_index(qcdir, subjects, pic_name):
 
 
 
+## if func2cifti mode was chosen make sure that NameOffMRI and Smoothing where also entered
+if qcmode=="func2cifti":
+    if not name_of_fmri:
+        sys.exit("Required argument --NameOffMRI not given for func2cifti QC")
+    if not fwhm:
+        sys.exit("Required argument --SmoothingFWHM not given for func2cifti QC")
+
 ## pic a QC dict
 qc_dict = QCmodes[qcmode]
 scene_list = qc_dict['scene_list']
@@ -202,8 +245,22 @@ if not index_only or snaps_only:
         scenestream = open(scenefile,'w')
         scene_txt = template_txt.replace('HCP_DATA_PATH/', hcp_data_dir)
         scene_txt = scene_txt.replace('SUBJID',subject)
+        if qcmode=='func2cifti':
+            scene_txt = scene_txt.replace('RSLTDIR', name_of_fmri)
+            scene_txt = scene_txt.replace('DTSERIESFILE', '{}_Atlas_s{}.dtseries.nii'.format(name_of_fmri,fwhm))
+            scene_txt = scene_txt.replace('SBREFFILE', '{}_SBRef.nii.gz'.format(name_of_fmri))
         scenestream.write(scene_txt)
         scenestream.close()
+
+        ## for func2cifti mode - change the palette on the SBREF file
+        if qcmode=='func2cifti':
+            docmd(['wb_command', '-volume-palette',
+                os.path.join(hcp_data_dir,subject,'MNINonLinear','Results',name_of_fmri,'{}_SBRef.nii.gz'.format(name_of_fmri)),
+                'MODE_AUTO_SCALE_PERCENTAGE',
+                '-disp-neg', 'false',
+                '-pos-percent', '25','98',
+                '-thresholding', 'THRESHOLD_TYPE_NORMAL', 'THRESHOLD_TEST_SHOW_OUTSIDE', '-500', '500',
+                '-palette-name','fsl_red'])
 
         ## write the header for the subjects qc page
         qchtml = os.path.join(qc_subdir, 'qc_{}.html'.format(subject))
@@ -213,8 +270,7 @@ if not index_only or snaps_only:
         qchtml.write('<body>\n<h1> QC {} {}</h1>\n'.format(subject,qcmode))
 
         ## for each scene, generate the pics and add to qc page
-        for scene_num in range(1,len(scene_list) + 1):
-            scene_dict = scene_list[scene_num-1]
+        for scene_dict in scene_list:
             if scene_dict['Keep']==True:
                 pic = os.path.join(qcdir,subject,'{}.png'.format(scene_dict['Name']))
                 picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
@@ -222,14 +278,14 @@ if not index_only or snaps_only:
             else:
                 pic = os.path.join(tmpdir,'{}.png'.format(scene_dict['Name']))
             if scene_dict['SplitHorizontal']==True:
-                tmppic = os.path.join(tmpdir, "scene{}.png".format(scene_num))
+                tmppic = os.path.join(tmpdir, "scene{}.png".format(scene_dict['Idx']))
                 docmd(['wb_command', '-show-scene',
-                        scenefile, str(scene_num),
+                        scenefile, str(scene_dict['Idx']),
                         tmppic,'600', '400'])
                 png_SplitHorizontal(tmppic,pic,tmpdir)
             else:
                 docmd(['wb_command', '-show-scene',
-                        scenefile, str(scene_num),
+                        scenefile, str(scene_dict['Idx']),
                         pic,'600', '400'])
 
         for montage_dict in montage_list:
@@ -246,7 +302,7 @@ if not index_only or snaps_only:
         ## close the htmlpage stream
         qchtml.close()
         ## remove the subjects scene file
-        docmd(['rm', scenefile])
+        if not DEBUG: docmd(['rm', scenefile])
 
 ## Start the index html file
 if index_only or not snaps_only:
