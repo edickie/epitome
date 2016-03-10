@@ -19,15 +19,27 @@ for SESS in ${DIR_SESS}; do
         FILE=`echo ${RUN}/*.nii.gz`
 
         if [ ! -f ${SESS}/func_ob.${ID}.${NUM}.nii.gz ]; then
-            # deoblique run
-            3dWarp \
-                -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
-                -deoblique \
-                -quintic \
-                -verb \
-                -gridset ${SESS}/${INPUT}.${ID}.01.nii.gz \
-                ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
-                ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+            if [ ${NUM} == '01' ]; then
+                # deoblique run (unconstrained for first run)
+                3dWarp \
+                    -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
+                    -deoblique \
+                    -quintic \
+                    -verb \
+                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
+                    ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+
+            else;
+                # deoblique run, matching dimensions to first run
+                3dWarp \
+                   -prefix ${SESS}/func_ob.${ID}.${NUM}.nii.gz \
+                   -deoblique \
+                   -quintic \
+                   -verb \
+                   -gridset ${SESS}/${INPUT}.${ID}.01.nii.gz \
+                   ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
+                   ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
+            fi
         fi
     done
 done
