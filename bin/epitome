@@ -357,6 +357,20 @@ def print_list(lst):
         print('    + ' + str(item))
     print('')
 
+def get_loop(function, arg=None):
+    """
+    Runs the supplied function until the function no longer returns none.
+    """
+    while True:
+        if arg:
+            var = function(arg)
+        else:
+            var = function()
+        if var == None:
+            pass
+        else:
+            return var
+
 # The Cleanup Pipeline
 ###############################################################################
 def run_cleanup():
@@ -369,26 +383,10 @@ def run_cleanup():
     dir_pipe = epi.config.find_epitome()
 
     print('epitome cleanup: THIS DELETES DATA.')
-
-    # get the experiment
-    flag = 0
-    while flag == 0:
-        expt = get_experiments()
-        if expt == None:
-            print('')
-        else:
-            flag = 1
+    expt = get_loop(get_experiments)
 
     print('Experiment: ' + str(expt) + '. Select image modality.\n')
-
-    # get the mode
-    flag = 0
-    while flag == 0:
-        mode = get_mode(expt)
-        if mode == None:
-            print('')
-        else:
-            flag = 1
+    mode = get_loop(get_mode, arg=expt)
 
     # get the date and time, current user, f_id
     datetime, user, f_id = epi.utilities.get_date_user()
@@ -513,20 +511,10 @@ def main():
         HCPMODE = False
         print('Running epitome. Select experiment.')
 
-    # make sure we have permissions to access the experiment directory.
+    # define experiment directory and check permissions
     if epi.utilities.has_permissions(DIR_DATA) == False:
         sys.exit("You do not have permission to write in {}".format(DIR_DATA))
-
-    # get the experiment
-    flag = 0
-    while flag == 0:
-        expt = get_experiments()
-        if expt == None:
-            print('')
-        else:
-            flag = 1
-
-    # now check to make sure we have experiment-specific permissions.
+    expt = get_loop(get_experiments)
     if epi.utilities.has_permissions(os.path.join(DIR_DATA, expt)) == False:
         sys.exit("You do not have permission to write in {}".format(os.path.join(DIR_DATA, expt)))
 
@@ -553,6 +541,7 @@ def main():
         os.system('cp -r {}/doc {}'.format(dir_pipe, localpath))
         os.system('cp -r {}/epitome {}'.format(dir_pipe, localpath))
         os.system('cp -r {}/assets {}'.format(dir_pipe, localpath))
+        os.system('cp -r {}/modules {}.'.format(dir_pipe, localpath))
 
     else:
         localpath = '{}/{}'.format(dir_clone, ID)
@@ -564,21 +553,10 @@ def main():
     dir_pipe = copy(localpath)
 
     print('\nExperiment: {}. Select image modality.'.format(expt))
-
-    # get the mode
-    flag = 0
-    while flag == 0:
-        mode = get_mode(expt)
-        if mode == None:
-            print('')
-        else:
-            flag = 1
+    mode = get_loop(get_mode, arg=expt)
 
     print('\nImage Modality: {}. Adding Freesurfer stages.'.format(mode))
-
-    # open up the master script, write common variables
     f = open(os.path.join(DIR_DATA, expt, master), 'wb')
-
     f.write('#!/bin/bash\n\n'
             '# Master script for {expt}: {mode}.\n'
             '# Generated: {datetime} by {user}.\n\n'
@@ -722,7 +700,6 @@ def main():
            'epi-queue ' + str(os.path.join(DIR_DATA, expt, proc))+' queuename.q')
     print('******************************************************************')
 
-# this is the command-line usage bit
 if __name__ == "__main__":
 
     # listing available modules and associated help
@@ -747,3 +724,4 @@ if __name__ == "__main__":
     # return the usage if the user does a silly thing
     else:
         print(__doc__)
+
