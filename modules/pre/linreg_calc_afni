@@ -122,7 +122,7 @@ for SESS in ${DIR_SESS}; do
             3dAllineate \
                 -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
                 -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
-                -1Dmatrix_apply ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D \
+                -1Dmatrix_apply ${DIR}/SESS01/mat_T1_to_EPI.aff12.1D \
                 -master ${EPI_BRAIN} \
                 -float -quiet \
                 -final quintic
