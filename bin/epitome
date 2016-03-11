@@ -357,19 +357,14 @@ def print_list(lst):
         print('    + ' + str(item))
     print('')
 
-def get_loop(function, arg=None):
+def get_loop(function, *args):
     """
     Runs the supplied function until the function no longer returns none.
     """
-    while True:
-        if arg:
-            var = function(arg)
-        else:
-            var = function()
-        if var == None:
-            pass
-        else:
-            return var
+    var = None
+    while var is None:
+        var = function(*args)
+    return var
 
 # The Cleanup Pipeline
 ###############################################################################
@@ -386,7 +381,7 @@ def run_cleanup():
     expt = get_loop(get_experiments)
 
     print('Experiment: ' + str(expt) + '. Select image modality.\n')
-    mode = get_loop(get_mode, arg=expt)
+    mode = get_loop(get_mode, expt)
 
     # get the date and time, current user, f_id
     datetime, user, f_id = epi.utilities.get_date_user()
@@ -553,7 +548,7 @@ def main():
     dir_pipe = copy(localpath)
 
     print('\nExperiment: {}. Select image modality.'.format(expt))
-    mode = get_loop(get_mode, arg=expt)
+    mode = get_loop(get_mode, expt)
 
     print('\nImage Modality: {}. Adding Freesurfer stages.'.format(mode))
     f = open(os.path.join(DIR_DATA, expt, master), 'wb')
