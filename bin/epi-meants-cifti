@@ -5,7 +5,7 @@ every voxel in the supplied mask. This function assumes all supplied
 images are the same size.
 
 Usage:
-    epi-seed-corr-cifti [options] <func> <seed>
+    epi-meants-cifti [options] <func> <seed>
 
 Arguments:
     <func>          functional data
@@ -107,36 +107,47 @@ def main():
     seeddim5=nib.load(seed).get_data().shape[5]
     funcdim5=nib.load(func).get_data().shape[5]
 
-    if sufaceonly:
-         if seedim5 < funcdim5:
-         '''
-         if we suspect that the
-         '''
-         tempLsurf=os.path.join(tempdir, 'Ltmp.gii')
-         tempRsurf=os.path.join(tempdir, 'Rtmp.gii')
-         newfunc=os.path.join(tempdir, 'funcsurfs.dtseries.nii')
-         docmd(['wb_command','-cifti-separate', func, COLUMN,
-                '-metric', 'CORTEX_LEFT', tempLsurf,
-                '-metric', 'CORTEX_RIGHT', tempRsurf])
-         docmd(['wb_command', '-cifti-create-dense-timeseries', newfunc,
-            '-left-metric', tempLsurf. '-roi-left', Lsurf,
-            '-right-metric', tempRsurf. '-roi-right', Rsurf,])
+    if surfaceonly:
+         if seeddim5 < funcdim5:
+             "if the seed is only surfaces - then we make a surface only func file to match"
+             tempLsurf=os.path.join(tempdir, 'Ltmp.gii')
+             tempRsurf=os.path.join(tempdir, 'Rtmp.gii')
+             newfunc=os.path.join(tempdir, 'funcsurfs.dtseries.nii')
+             docmd(['wb_command','-cifti-separate', func, COLUMN,
+                    '-metric', 'CORTEX_LEFT', tempLsurf,
+                    '-metric', 'CORTEX_RIGHT', tempRsurf])
+             docmd(['wb_command', '-cifti-create-dense-timeseries', newfunc,
+                '-left-metric', tempLsurf, '-roi-left', Lsurf,
+                '-right-metric', tempRsurf, '-roi-right', Rsurf,])
+             func = newfunc
 
-    if seedim5 < funcdim5:
-        '''
-        if we suspect that the
-        '''
-        if
-        docmd(['wb_command','-cifti-separate', ])
+         if seeddim5 > funcdim5:
+             '''
+             if the func is only surfaces (ex thickness)
+             we make a surface only seed file to match
+             '''
+             tempLsurf=os.path.join(tempdir, 'Ltmp.gii')
+             tempRsurf=os.path.join(tempdir, 'Rtmp.gii')
+             newseed=os.path.join(tempdir, 'seedsurfs.dscalar.nii')
+             docmd(['wb_command','-cifti-separate', seed, COLUMN,
+                    '-metric', 'CORTEX_LEFT', tempLsurf,
+                    '-metric', 'CORTEX_RIGHT', tempRsurf])
+             docmd(['wb_command', '-cifti-create-dense-scalar', newseed,
+                '-left-metric', tempLsurf, '-roi-left', Lsurf,
+                '-right-metric', tempRsurf, '-roi-right', Rsurf,])
+             seed = newseed
 
     seeddim5=nib.load(seed).get_data().shape[5]
     funcdim5=nib.load(func).get_data().shape[5]
+
+    if seeddim5 != funcdim5:
+        sys.exit("Func file {} and ROIs {} do not have the same size".format(seedim5, funcdim5))
     ## convert to nifti
     docmd(['wb_command','-cifti-convert','-to-nifti',func, func_fnifti])
 
     ## if seed if dscalar - convert
     if ".dscalar.nii" in seed or ".dtseries.nii" in seed:
-        docmd(['wb_command','-cifti-convert','-to-nifti',seed, seed_fnifti])}
+        docmd(['wb_command','-cifti-convert','-to-nifti',seed, seed_fnifti])
 
     ## if mask exists - convert it, if not make one from the func.dscalar.nii
     if not mask:
