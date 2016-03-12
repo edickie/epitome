@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 A collection of utilities for the epitome pipeline. Mostly for getting
-subject numbers/names, checking paths, gathering inforamtion, etc.
+subject numbers/names, checking paths, gathering information, etc.
 """
 
 import os, sys, copy
@@ -17,6 +17,8 @@ def selector_float():
     option = raw_input('#: ') # have the user enter a number
 
     # ensure response is non-negative
+    if option == 'stop': 
+        return 'stop'
     if option == '':
         option = -1
 
@@ -26,11 +28,11 @@ def selector_float():
             response = float(option)
             return response
         else:
-            print('*** Input must be positive! ***')
-            raise ValueError
+            print('ERROR: input must be positive.')
+            return None
     except:
-        print('*** Input must be a float! ***')
-        raise ValueError
+        print('ERROR: input must be a float.')
+        return None
 
 def selector_int():
     """
@@ -38,8 +40,9 @@ def selector_int():
     """
     option = raw_input('#: ') # have the user enter a number
 
-    # ensure response is non-negative
-    if option == '':
+    if option == 'stop': 
+        return 'stop'
+    if option == '': 
         option = -1
 
     # check input
@@ -48,11 +51,11 @@ def selector_int():
             response = int(option)
             return response
         else:
-            print('*** Input must be positive! ***')
-            raise ValueError
+            print('ERROR: input must be positive.')
+            return None
     except:
-        print('*** Input must be an integer! ***')
-        raise ValueError
+        print('ERROR: input must be an integer.')
+        return None
 
 def selector_list(item_list):
     """
@@ -72,16 +75,19 @@ def selector_list(item_list):
     option = raw_input('option #: ')
 
     # check input
+    if option == 'stop':
+        return 'stop'
     if option == '':
         option = 0
+
     try:
         response = item_list[int(option)-1]
     except:
-        print('*** Option # invalid! ***')
-        raise ValueError
+        print('ERROR: option # invalid.')
+        return None
     if int(option) == 0:
-        print('*** Option # invalid! ***')
-        raise ValueError
+        print('ERROR: option # invalid.')
+        return None
     return response
 
 def selector_dict(item_dict):
@@ -107,17 +113,19 @@ def selector_dict(item_dict):
     # retrieve the option number
     option = raw_input('option #: ')
 
-    # check input
+    if option == 'stop': 
+        return 'stop'
     if option == '':
         option = 0
+
     try:
         response = item_list[int(option)-1]
     except:
-        print('*** Option # invalid! ***')
-        raise ValueError
+        print('ERROR: option # invalid.')
+        return None
     if int(option) == 0:
-        print('*** Option # invalid! ***')
-        raise ValueError
+        print('ERROR: option # invalid.')
+        return None
     return response
 
 def get_subj(dir):
@@ -138,9 +146,7 @@ def has_permissions(directory):
         flag = True
     else:
         print('\nYou do not have write access to directory ' + str(directory))
-        print('Please contact a system administrator and try again.\n')
         flag = False
-
     return flag
 
 def check_os():
