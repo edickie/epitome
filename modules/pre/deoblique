@@ -36,7 +36,7 @@ for SESS in ${DIR_SESS}; do
                    -deoblique \
                    -quintic \
                    -verb \
-                   -gridset ${SESS}/${INPUT}.${ID}.01.nii.gz \
+                   -gridset ${SESS}/func_ob.${ID}.01.nii.gz \
                    ${SESS}/${INPUT}.${ID}.${NUM}.nii.gz > \
                    ${SESS}/PARAMS/deoblique.${ID}.${NUM}.1D
             fi
