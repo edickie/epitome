@@ -332,9 +332,7 @@ def writer(p_list, line, filename, f, output, bkup, mode):
     """
     Writes lines to the master script.
     """
-    if mode == 'sub':
-        filename = '${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/{}'.format(filename)
-    elif mode == 'exp':
+    if mode == 'exp':
         filename = '${{DIR_DATA}}/${{DIR_EXPT}}/{}'.format(filename)
 
     # output will == None if we made a mistake
@@ -517,11 +515,11 @@ def main():
     if os.path.isdir(dir_clone) == False:
         os.system('mkdir -p {}'.format(dir_clone))
 
-    # present the user with the curent pipelines
+    # present the user with the current pipelines
     pipelist = os.listdir(os.path.join(dir_clone))
     pipelist = filter(lambda x: os.path.isdir(os.path.join(dir_clone, x)), pipelist)
     pipelist.append('***NEW***')
-    print('\nSelect which replicant you want from {}:'.format(dir_clone))
+    print('\nSelect which version you want from {}:'.format(dir_clone))
     ID = epi.utilities.selector_list(pipelist)
 
     if ID == '***NEW***':
@@ -536,7 +534,7 @@ def main():
         os.system('cp -r {}/doc {}'.format(dir_pipe, localpath))
         os.system('cp -r {}/epitome {}'.format(dir_pipe, localpath))
         os.system('cp -r {}/assets {}'.format(dir_pipe, localpath))
-        os.system('cp -r {}/modules {}.'.format(dir_pipe, localpath))
+        os.system('cp -r {}/modules {}'.format(dir_pipe, localpath))
 
     else:
         localpath = '{}/{}'.format(dir_clone, ID)
@@ -561,8 +559,7 @@ def main():
             'export DIR_EXPT={expt}\n'
             'export DATA_TYPE={mode}\n'
             'export ID={ID}\n\n'
-            'export PROC={proc}\n'
-            'export CMD={cmd}\n\n'
+            'export PROC=${{DIR_DATA}}/${{DIR_EXPT}}/{proc}\n\n'
             'export AFNI_DECONFLICT=OVERWRITE\n'
             'export SUBJECTS=$(epi-listsubj ${{DIR_DATA}}/${{DIR_EXPT}})\n\n'.format(
                 ID=ID, cmd=cmd, expt=expt, mode=mode, proc=proc,
@@ -572,19 +569,20 @@ def main():
     if HCPMODE :
         # if hcp pipe env defined, use hcp-export
         f.write('## Freesurfer\n'
-            'epi-fsrecon ${DIR_DATA} ${DIR_EXPT} ${DIR_DATA}/${DIR_EXPT}/${PROC}\n'
+            'epi-fsrecon ${DIR_DATA} ${DIR_EXPT} ${PROC}\n'
             '## Freesurfer to HCP conversion\n'
-            'epi-fsrecon2hcp ${DIR_DATA} ${DIR_EXPT} ${DIR_DATA}/${DIR_EXPT}/${PROC}\n'
-            '. ${DIR_PIPE}/modules/hcp/hcpexport ${DIR_DATA} ${DIR_EXPT} >> ${DIR_DATA}/${DIR_EXPT}/${PROC}\n\n')
+            'epi-fsrecon2hcp ${DIR_DATA} ${DIR_EXPT} ${PROC}\n'
+            '. ${DIR_PIPE}/modules/hcp/hcpexport ${DIR_DATA} ${DIR_EXPT} >> ${PROC}\n\n')
     else :
         # if no hcp pipe env defined, use fs export
         f.write('## Freesurfer\n'
-            'epi-fsrecon ${DIR_DATA} ${DIR_EXPT} ${DIR_DATA}/${DIR_EXPT}/${PROC}\n'
-            '. ${DIR_PIPE}/modules/freesurfer/fsexport ${DIR_DATA} ${DIR_EXPT} >> ${DIR_DATA}/${DIR_EXPT}/${PROC}\n\n')
+            'epi-fsrecon ${DIR_DATA} ${DIR_EXPT} ${PROC}\n'
+            '. ${DIR_PIPE}/modules/anat/fsexport ${DIR_DATA} ${DIR_EXPT} >> ${PROC}\n\n')
 
     f.write('## Begin Pipeline\n'
             'for SUB in ${{SUBJECTS}}; do\n\n'
-            'cat > ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}} << EOF\n'
+            'export CMD=${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/{cmd}\n'
+            'cat > ${{CMD}} << EOF\n'
             '#!/bin/bash\n'
             'set -e\n\n'
             'export DIR_PIPE=${{DIR_PIPE}}\n'
@@ -647,9 +645,9 @@ def main():
             flag = 1
 
     # add each subject to the proclist, close the subject loop
-    f.write('\nchmod 750 ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}}\n'
+    f.write('\nchmod 750 ${{CMD}}\n'
             '# append this subject to the process queue\n'
-            'echo ${{DIR_DATA}}/${{DIR_EXPT}}/${{SUB}}/${{CMD}} >> ${{DIR_DATA}}/${{DIR_EXPT}}/${{PROC}}\n'
+            'echo ${{CMD}} >> ${{PROC}}\n'
             'done\n\n'
             '# calls to QC programs\n'.format(cmd=cmd, proc=proc))
 
