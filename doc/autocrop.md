@@ -1,6 +1,6 @@
-despike
--------
-Usage: autobox <func_prefix>
+autocrop
+--------
+Usage: autocrop <func_prefix>
 
 + func_prefix -- functional data prefix (eg., smooth in func_smooth).
 
