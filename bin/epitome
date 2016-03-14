@@ -221,18 +221,7 @@ def check_environment(mode='verbose'):
                '    hcp data        -- {hcp_data}\n'
                '    hcp tools       -- {hcp_tools}\n'
                '    wb_command      -- {wb_command}\n'.format(
-                    DIR_DATA=DIR_DATA,
-                    dir_pipe=dir_pipe,
-                    dir_clone=dir_clone,
-                    dir_freesurfer=dir_freesurfer,
-                    dir_freesurfer_data=dir_freesurfer_data,
-                    DIR_AFNI=DIR_AFNI,
-                    dir_fsl=dir_fsl,
-                    dir_fix=dir_fix,
-                    DIR_MATLAB=DIR_MATLAB,
-                    hcp_data=dir_hcp_data,
-                    hcp_tools=dir_hcp_tools,
-                    wb_command=workbench))
+                    **vars()))
         print(txt)
 
 def check_run(expt, subj, mode, sess, run):
@@ -292,13 +281,13 @@ def check_directories(expt):
     reports the number of subjects with each kind of image modality.
     """
     if epi.utilities.has_permissions(os.path.join(DIR_DATA, expt)) == False:
-        sys.exit()
+        sys.exit('ERROR: you do not have permissions to edit this experiment.')
 
     # attempt to access the subjects for a given experiment
     try:
         subjects = epi.utilities.get_subj(os.path.join(DIR_DATA, expt))
     except:
-        print('Your experiment path is incorrect ' + str(expt))
+        print('ERROR: experiment path is incorrect {}'.format(expt))
 
     # this dict will hold our count
     mode_dict = {}
@@ -362,6 +351,29 @@ def get_loop(function, *args):
         var = function(*args)
     return var
 
+def find_files(directory, include, exclude=None):
+    """
+    Finds all files in the given directory including some pattern, and 
+    excluding any directories matching some pattern if defined.
+    """
+    fnames = []
+    for pth, dirs, files in os.walk(directory, topdown=True):
+        if exclude:
+            dirs[:] = [d for d in dirs if exclude not in d]
+        for f in files:
+            if include in f:
+                fnames.append(os.path.join(pth, f))
+
+    return fnames
+
+def purge(files):
+    """
+    Takes a list of filenames and attempts to remove them.
+    """
+    if len(files) > 0:
+        for f in files:
+            os.remove(f)
+
 def run_cleanup():
     """
     Prints out scripts used to manage / remove epitome outputs.
@@ -384,56 +396,55 @@ def run_cleanup():
     # get the subjects
     print('Would you like to cleanup all subjects, or just some?')
     decision = get_loop(epi.utilities.selector_list, ['all', 'some'])
-
     if decision == 'stop':
         sys.exit()
-
-    if decision == 'some':
+    elif decision == 'some':
         flag = 0
         subjects = []
         subj_list = epi.utilities.get_subj(os.path.join(DIR_DATA, expt))
         while flag == 0:
-            print("""Please select a subject. Type 'stop' to stop.""")            
+            print("""Select a subject to cleanup. Type 'stop' to stop.""")            
             subj = get_loop(epi.utilities.selector_list, subj_list)
             if subj == 'stop':
                 flag = 1
                 continue
             subjects.append(subj)
             subj_list.remove(subj)
-            
             print('The following subjects are slated for cleanup:')
             print_list(subjects)
-
-    # otherwise just get the whole list
     elif decision == 'all':
         subjects = epi.utilities.get_subj(os.path.join(DIR_DATA, expt))
         print('All subjects slated for cleanup.')
 
-    # get all the possible functional file stages
-    fnames = []
+    # get all files with given pattern
+    print("""Input target file-name pattern to delete (e.g., '.txt'):""")
+    extension = raw_input('extension: ')
+    fnames = find_files(os.path.join(DIR_DATA, expt), extension, exclude='RUN')
+    prefixes = []
+    for f in fnames:
+        prefixes.append(os.path.basename(f).split('.')[0])
+    prefixes = (list(set(prefixes)))
+    prefixes.sort()
 
-    for pth, dirs, files in os.walk(os.path.join(DIR_DATA, expt), topdown=True):
-        # exclude run directories (holding raw data)
-        dirs[:] = [d for d in dirs if 'RUN' not in d]
-        for f in files:
-            if '.nii.gz' in f:
-                fnames.append(f.split('.')[0])
-    fnames = (list(set(fnames)))
-    fnames.sort()
-
+    # pick files by their prefix to remove
     remove = []
     flag = 0
     while flag == 0:
-        print("""Select filetypes to remove. Type 'stop' to stop.""")
-        fname = get_loop(epi.utilities.selector_list, fnames)
-        if fname == 'stop':
+        print("""Select file types to remove. Type 'stop' to stop.""")
+        prefix = get_loop(epi.utilities.selector_list, prefixes)
+        if prefix == 'stop':
             flag = 1
             continue
-        remove.append(fname)
-        fnames.remove(fname)
+        remove.append(prefix)
+        prefixes.remove(prefix)
 
-        print('The following filetypes are slated to be removed:')
+        print('The following file types are slated to be removed:')
         print_list(remove)
+
+    # loop through subjects, removing specified files in the selected modality
+    for prefix in remove:
+        for subj in subjects:
+            purge(find_files(os.path.join(DIR_DATA, expt, subj, mode), prefix, exclude='RUN'))
 
 # The Actual Pipeline ##########################################################
 def main():
@@ -521,9 +532,7 @@ def main():
             'export PROC=${{DIR_DATA}}/${{DIR_EXPT}}/{proc}\n\n'
             'export AFNI_DECONFLICT=OVERWRITE\n'
             'export SUBJECTS=$(epi-listsubj ${{DIR_DATA}}/${{DIR_EXPT}})\n\n'.format(
-                ID=ID, cmd=cmd, expt=expt, mode=mode, proc=proc,
-                user=user, datetime=datetime, dir_pipe=dir_pipe,
-                DIR_DATA=DIR_DATA, DIR_MATLAB=DIR_MATLAB))
+                **vars()))
 
     if HCPMODE :
         # if hcp pipe env defined, use hcp-export
@@ -551,9 +560,7 @@ def main():
             'export ID=${{ID}}\n'
             'export SUB=${{SUB}}\n'
             """McRetroTS='{dir_pipe}/bin/run_McRetroTS.sh {DIR_MATLAB}'\n"""
-            'EOF\n\n'.format(ID=ID, cmd=cmd, expt=expt, mode=mode,
-                proc=proc, user=user, datetime=datetime, dir_pipe=dir_pipe,
-                DIR_DATA=DIR_DATA, DIR_MATLAB=DIR_MATLAB))
+            'EOF\n\n'.format(**vars()))
 
     p_list = [] # keeps track of our command-list
     line, output = epi.commands.init_basic.run()
@@ -599,7 +606,7 @@ def main():
             '# append this subject to the process queue\n'
             'echo ${{CMD}} >> ${{PROC}}\n'
             'done\n\n'
-            '# calls to QC programs\n'.format(cmd=cmd, proc=proc))
+            '# calls to QC programs\n')
 
     # add user-defined qc runs
     p_list = [] # keeps track of our command-list

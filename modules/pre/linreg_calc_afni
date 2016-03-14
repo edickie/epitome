@@ -119,7 +119,7 @@ for SESS in ${DIR_SESS}; do
     if [ ! -f ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz ]; then
 
         # generate EPI_to_T1
-        #if [ ${multisession} -eq 1 ]; then
+        if [ ${multisession} -eq 1 ]; then
             3dAllineate \
                 -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
                 -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
@@ -127,15 +127,15 @@ for SESS in ${DIR_SESS}; do
                 -master ${EPI_BRAIN} \
                 -float -quiet \
                 -final quintic
-        #else
-        #    3dAllineate \
-        #        -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
-        #        -input ${DIR_T1}/SESS01/anat_T1_brain.nii.gz \
-        #        -1Dmatrix_apply ${DIR}/SESS01/mat_T1_to_EPI.aff12.1D \
-        #        -master ${EPI_BRAIN} \
-        #        -float -quiet \
-        #        -final quintic
-        #fi
+        else
+            3dAllineate \
+                -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
+                -input ${DIR_T1}/SESS01/anat_T1_brain.nii.gz \
+                -1Dmatrix_apply ${DIR}/SESS01/mat_T1_to_EPI.aff12.1D \
+                -master ${EPI_BRAIN} \
+                -float -quiet \
+                -final quintic
+        fi
     fi
 done
 

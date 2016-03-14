@@ -87,12 +87,19 @@ for SESS in ${DIR_SESS}; do
 
     if [ ! -f mat_WHEPI_to_T1.aff12.1D ]; then
 
+        # figure out if we are in multisession or single session mode
+        if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+            multisession=1
+        else
+            multisession=0
+        fi
+
         # Copy EPI and MNI brain into ${DIR}/${SESS} as AFNI BRIKs
         if [ ! -f anat_WHEPI_brain+orig* ]; then 3dcopy ${DIR}/${SESS}/anat_WHEPI_brain.nii.gz anat_WHEPI_brain; fi
         if [ ! -f template* ]; then 3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template; fi
         if [ ! -f anat_T1_brain+orig* ]; then
             # copy the session T1 registration if exists, else, use the first session.
-            if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+            if [ ${multisession} -eq 1 ]; then
                 3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain
             else
                 3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain
@@ -133,8 +140,12 @@ for SESS in ${DIR_SESS}; do
             ${DIR}/${SESS}/mat_WHEPI_to_TAL.aff12.1D > \
             ${DIR}/${SESS}/mat_T1_to_TAL.aff12.1D
 
-        if [ ! -f ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz ]; then 3dcopy anat_T1_brain+tlrc ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz; fi
-        if [ ! -f ${DIR}/${SESS}/reg_WHEPI_to_T1.nii.gz ]; then 3dcopy anat_WHEPI_brainWHEPI_to_T1+orig ${DIR}/${SESS}/reg_WHEPI_to_T1.nii.gz; fi
+        if [ ! -f ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz ]; then
+            3dcopy anat_T1_brain+tlrc ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz
+        fi
+        if [ ! -f ${DIR}/${SESS}/reg_WHEPI_to_T1.nii.gz ]; then
+            3dcopy anat_WHEPI_brainWHEPI_to_T1+orig ${DIR}/${SESS}/reg_WHEPI_to_T1.nii.gz
+        fi
 
         # create EPI_to_T1 and EPI_to_MNI transforms
         cat_matvec \
@@ -151,7 +162,7 @@ for SESS in ${DIR_SESS}; do
     if [ ! -f ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D ]; then
         # If we have a T1 for each session, we register to the session T1.
         # Otherwise, we go to the first session.
-        if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
+        if [ ${multisession} -eq 1 ]; then
             3dAllineate \
                 -prefix ${DIR}/${SESS}/reg_T1_to_WHEPI.nii.gz \
                 -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
@@ -182,6 +193,14 @@ for SESS in ${DIR_SESS}; do
             ${DIR}/${SESS}/mat_T1_to_WHEPI.aff12.1D \
             ${DIR}/${SESS}/mat_WHEPI_to_EPI.aff12.1D > \
             ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D
+
+        # remove temporary files
+        rm *.BRIK
+        rm *.HEAD
+        rm *WarpDrive.log
+        rm *Xaff12.1D
+        rm *Xat.1D
+        rm *shft.1D
     fi
 done
 
