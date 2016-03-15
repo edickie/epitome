@@ -353,7 +353,7 @@ def get_loop(function, *args):
 
 def find_files(directory, include, exclude=None):
     """
-    Finds all files in the given directory including some pattern, and 
+    Finds all files in the given directory including some pattern, and
     excluding any directories matching some pattern if defined.
     """
     fnames = []
@@ -403,7 +403,7 @@ def run_cleanup():
         subjects = []
         subj_list = epi.utilities.get_subj(os.path.join(DIR_DATA, expt))
         while flag == 0:
-            print("""Select a subject to cleanup. Type 'stop' to stop.""")            
+            print("""Select a subject to cleanup. Type 'stop' to stop.""")
             subj = get_loop(epi.utilities.selector_list, subj_list)
             if subj == 'stop':
                 flag = 1
@@ -530,7 +530,6 @@ def main():
             'export DATA_TYPE={mode}\n'
             'export ID={ID}\n\n'
             'export PROC=${{DIR_DATA}}/${{DIR_EXPT}}/{proc}\n\n'
-            'export AFNI_DECONFLICT=OVERWRITE\n'
             'export SUBJECTS=$(epi-listsubj ${{DIR_DATA}}/${{DIR_EXPT}})\n\n'.format(
                 **vars()))
 
@@ -566,7 +565,7 @@ def main():
     line, output = epi.commands.init_basic.run()
     p_list, output = writer(p_list, line, '${CMD}', f, output, None, 'sub')
     used = ['init_basic'] # start the 'used module' list
-    
+
     flag = 0
     while flag == 0:
 
@@ -616,7 +615,7 @@ def main():
     while flag == 0:
         print('Please select the next QC module:')
         module, used = get_modules(dir_pipe, moduletype='qc', used=used)
-        
+
         if module == 'stop':
             flag = 1
             continue
