@@ -116,13 +116,15 @@ for SESS in ${DIR_SESS}; do
         # generate EPI_to_T1
         if [ ${multisession} -eq 1 ]; then
             mat=${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D
+            t1=${DIR_T1}/${SESS}/anat_T1_brain.nii.gz
         else
             mat=${DIR}/SESS01/mat_T1_to_EPI.aff12.1D
+            t1=${DIR_T1}/SESS01/anat_T1_brain.nii.gz
         fi
 
         3dAllineate \
             -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
-            -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
+            -input ${t1} \
             -1Dmatrix_apply ${mat} \
             -master ${EPI_BRAIN} \
             -float -quiet \
