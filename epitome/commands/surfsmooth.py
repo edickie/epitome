@@ -2,7 +2,7 @@
 
 import epitome as epi
 
-def run(input_name):    
+def run(input_name):
     output = 'smooth'
 
     print('\nSmoothing functional data on a cortical surface.')
@@ -16,8 +16,6 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/surfsmooth ' +
-                                      str(input_name) + ' ' +
-                                      str(fwhm))
+    line = '. ${{DIR_PIPE}}/modules/pre/surfsmooth {} {}'.format(input_name, fwhm)
 
     return line, output

@@ -6,12 +6,12 @@ def run(input_name):
     output = 'scrubbed'
 
     print('\nRemoving motion-corrupted TRs.')
-    
+
     print('\nWould you like to use the defaults?')
     print('                           Head Size = 50 mm')
     print('    Framewise Displacement Threshold = 0.5 mm / TR')
     print('                     DVARS Threshold = 1,000,000 pct signal change / TR')
-    
+
     try:
         defaults = ['yes', 'no']
         decision = epi.utilities.selector_list(defaults)
@@ -42,12 +42,8 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/trscrub ' + 
-                                  str(input_name) + ' ' +
-                                  str(head_size) + ' ' +
-                                  str(FD) + ' ' +
-                                  str(DV) + ' ' +
-                                  str(mode))
+    line = '. ${{DIR_PIPE}}/modules/pre/trscrub {} {} {} {} {}'.format(
+                                    input_name, head_size, FD, DV, mode)
 
     return line, output
 

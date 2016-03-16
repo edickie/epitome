@@ -42,10 +42,7 @@ def run(input_name):
                         'assets','fix_training_data',train_data)
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/ica_fix ' +
-                                      str(input_name) + ' ' +
-                                      str(train_data_path) + ' ' +
-                                      str(threshold) + ' ' +
-                                      str(motionregress) + ' ' +
-                                      str(fixcleanup))
+    line = '. ${{DIR_PIPE}}/modules/pre/ica_fix {} {} {} {} {}'.format(
+            input_name, train_data_path, threshold, motionregress, fixcleanup)
     return line, output
+

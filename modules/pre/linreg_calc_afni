@@ -29,17 +29,32 @@ for SESS in ${DIR_SESS}; do
         EPI_BRAIN=`echo ${DIR}/${SESS}/anat_EPI_brain.nii.gz`
     fi
 
+    # figure out if we should use each session's T1, or just the first session
+    if [ $(ls -l ${DIR} | grep ^d | wc -l) -eq $(ls -l ${DIR_T1} | grep ^d | wc -l) ]; then
+        multisession=1
+    else
+        multisession=0
+    fi
+
+    # only run if the output file reg_EPI_to_T1 does not exist in the expected session (multisession or all to 1st session).
     if [ ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz ]; then
 
-        # Copy of EPI and MNI brain for @auto_tlrc.
-        if [ ! -f anat_EPI_brain+orig* ]; then 3dcopy ${EPI_BRAIN} anat_EPI_brain; fi
-        if [ ! -f template* ]; then 3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template; fi
+        # copy of EPI in native space
+        if [ ! -f anat_EPI_brain+orig* ]; then
+            3dcopy ${EPI_BRAIN} anat_EPI_brain+orig
+        fi
+
+        # copy of MNI brain in MNI space
+        if [ ! -f template+tlrc* ]; then
+            3dcopy ${DIR_DATA}/${DIR_EXPT}/anat_MNI.nii.gz template+tlrc
+        fi
+
+        # register to the session T1 if exists, else, use the first session
         if [ ! -f anat_T1_brain+orig* ]; then
-            # register to the session T1 if exists, else, use the first session.
-            if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
-                3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain
+            if [ ${multisession} -eq 1 ]; then
+                3dcopy ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz anat_T1_brain+orig
             else
-                3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain
+                3dcopy ${DIR_T1}/SESS01/anat_T1_brain.nii.gz anat_T1_brain+orig
             fi
         fi
 
@@ -81,37 +96,41 @@ for SESS in ${DIR_SESS}; do
             3dcopy anat_T1_brain+tlrc ${DIR}/${SESS}/reg_T1_to_TAL.nii.gz
         fi
 
-        if [ ! -f ${DIR}/SESS01/reg_EPI_to_T1.nii.gz ]; then
-            # copy the session T1 registration if exists, else, use the first session.
-            if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
-                3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz
-            else
-                3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/SESS01/reg_EPI_to_T1.nii.gz
-            fi
+        # copy to each T1 session if exists, else, use the first session
+        if [ ! -f ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz ]; then
+            3dcopy anat_EPI_brainEPI_to_T1+orig ${DIR}/${SESS}/reg_EPI_to_T1.nii.gz
         fi
+
+        # remove temporary files
+        rm *.BRIK
+        rm *.HEAD
+        rm *WarpDrive.log
+        rm *Xaff12.1D
+        rm *Xat.1D
+        rm *shft.1D
     fi
 
     # Create reg_T1_to_EPI
     if [ ! -f ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz ]; then
+
         # generate EPI_to_T1
-        if [ `ls -l ${DIR} | grep ^d | wc -l` -eq `ls -l ${DIR_T1} | grep ^d | wc -l` ]; then
-            3dAllineate \
-                -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
-                -input ${DIR_T1}/${SESS}/anat_T1_brain.nii.gz \
-                -1Dmatrix_apply ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D \
-                -master ${EPI_BRAIN} \
-                -float -quiet \
-                -final quintic
+        if [ ${multisession} -eq 1 ]; then
+            mat=${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D
+            t1=${DIR_T1}/${SESS}/anat_T1_brain.nii.gz
         else
-            3dAllineate \
-                -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
-                -input ${DIR_T1}/SESS01/anat_T1_brain.nii.gz \
-                -1Dmatrix_apply ${DIR}/${SESS}/mat_T1_to_EPI.aff12.1D \
-                -master ${EPI_BRAIN} \
-                -float -quiet \
-                -final quintic
+            mat=${DIR}/SESS01/mat_T1_to_EPI.aff12.1D
+            t1=${DIR_T1}/SESS01/anat_T1_brain.nii.gz
         fi
+
+        3dAllineate \
+            -prefix ${DIR}/${SESS}/reg_T1_to_EPI.nii.gz \
+            -input ${t1} \
+            -1Dmatrix_apply ${mat} \
+            -master ${EPI_BRAIN} \
+            -float -quiet \
+            -final quintic
     fi
 done
 
 EOF
+

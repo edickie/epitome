@@ -3,6 +3,11 @@
 Takes a proclist created using epitome run and submits it to the installed
 Oracle Sun Grid Engine using qsub.
 
+Some jobs are written to scripts in a .jobs folder in the current directory. If
+a .jobs folder already exists, it is removed.
+
+Logs are written to a .logs folder in the current directory.
+
 Usage:
     epi-queue <proclist> <queue>
 
@@ -16,11 +21,20 @@ DETAILS:
 """
 
 import os, sys
+import shutil
 import random
 import string
 import subprocess
 import epitome as epi
 from epitome.docopt import docopt
+
+def write_script(name, line):
+    """
+    Writes a single command to a queue-submittable script.
+    """
+    f = open(name, 'wb')
+    f.write('#!/bin/bash\n{}\n'.format(line))
+    f.close()
 
 def main():
     arguments = docopt(__doc__)
@@ -30,73 +44,96 @@ def main():
     f = open(proclist)
     f = f.read()
 
+    # make the .jobs and .logs files
+    if os.path.isdir('.jobs') == True:
+        shutil.rmtree('.jobs')
+    if os.path.isdir('.logs') == True:
+        shutil.rmtree('.logs')
+    os.mkdir('.jobs')
+    os.mkdir('.logs')
+
     # used to keep freesurfer + qc jobs distinct
-    u_id = ''.join(random.choice(string.ascii_uppercase + 
-                                 string.digits) for _ in range(6))
+    u_id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     sublist = []
     fslist = []
+    fs2hcplist = []
 
     for i, line in enumerate(f.split('\n')):
 
         # skip empty entries
-        if len(line) == 0:
+        if len(line) == 0 or line == '':
             continue
 
         # parsed line
-        name = (line.replace('/', ' ').split(' ')[-1][0:-3] + '_' + str(i))
+        name = line.replace('/', ' ').split(' ')[-1][0:-3] + '_{}'.format(str(i))
 
         # freesurfer recon-alls
-        if line.startswith('recon-all') == True:
-            fsname = 'epi-fs_' + u_id + '_' + str(i)
-            log = fsname + '.log'
-            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
-                     -cwd -N {name} -l mem_free=6G,virtual_free=6G -j y \
-                  """.format(line=line, log=log, queue=queue, name=fsname)
+        if line.startswith('recon-all'):
+            fsname = 'epi-fs_{}_{}'.format(u_id, str(i))
+            log = '.logs/{}'.format(fsname)
+            script = '.jobs/{}'.format(fsname)
+            write_script(script, line)
+            cmd = 'qsub -o {} -S /bin/bash -V -q {} -cwd -N {} -l mem_free=6G,virtual_free=6G -j y {}'.format(
+                  log, queue, fsname, script)
             fslist.append(fsname)
 
-        elif line == '':
-            continue
+        # freesurfer to hcp transformations (depends on freesurfer)
+        elif line.startswith('fs2hcp'):
+            fs2hcpname = 'epi-fs2hcp_{}_{}'.format(u_id, str(i))
+            log = '.logs/{}'.format(fs2hcpname)
+            script = '.jobs/{}'.format(fs2hcpname)
+            write_script(script, line)
+            cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
+                  log, queue, ",".join(fslist), fs2hcpname, script)
+            fs2hcplist.append(fs2hcpname)
 
-        # freesurfer exports
-        elif line.startswith('epi-fsexport') == True:
-            fsexportname = 'epi-fsexport_' + u_id
-            log = fsexportname + '.log'
-            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
-                     -hold_jid {hold} -cwd -N {name} -j y \
-                  """.format(line=line, log=log, hold=",".join(fslist),
-                                                 queue=queue, name=fsexportname)
+        # freesurfer exports (depends on freesurfer)
+        elif line.startswith('epi-fsexport'):
+            exname = 'epi-fsexport_{}'.format(u_id)
+            log = '.logs/{}'.format(exname)
+            script = '.jobs/{}'.format(exname)
+            write_script(script, line)
+            cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
+                  log, queue, ",".join(fslist), exname, script)
 
-        # preprocessing
-        elif line.split('/')[-1].startswith('cmd') == True:
-            cmdname = 'epi-cmd_' + name
-            log = cmdname + '.log'
-            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
-                     -hold_jid {hold} -cwd -N {name} -j y \
-                  """.format(line=line, log=log, hold=fsexportname,
-                                                 queue=queue, name=cmdname)
+        # hcp exports (depends on freesurfer -> hcp transformation)
+        elif line.startswith('epi-hcpexport'):
+            exname = 'epi-hcpexport_{}'.format(u_id)
+            log = '.logs/{}'.format(exname)
+            script = '.jobs/{}'.format(exname)
+            write_script(script, line)
+            cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
+                  log, queue, ",".join(fs2hcplist), exname, script)
+
+        # preprocessing (depends on fsexport / hcpexport)
+        elif line.split('/')[-1].startswith('cmd'):
+            cmdname = 'epi-cmd_{}'.format(name)
+            log = '.logs/{}'.format(cmdname)
+            cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
+                  log, queue, exname, cmdname, line)
             sublist.append(cmdname)
 
-        # qc
-        elif line.startswith('epi-qc') == True:
-            qcname = 'epi-qc_' + u_id + '_' + str(i)
-            log = qcname + '.log'
-            cmd = """echo {line} | qsub -o {log} -S /bin/bash -V -q {queue} \
-                     -hold_jid {hold} -cwd -N {name} -j y \
-                  """.format(line=line, log=log, hold=",".join(sublist),
-                                                 queue=queue, name=qcname)
+        # qc (depends on preprocessing)
+        elif line.startswith('epi-qc'):
+            qcname = 'epi-qc_{}_{}'.format(u_id, str(i))
+            log = '.logs/{}'.format(qcname)
+            script = '.jobs/{}'.format(qcname)
+            write_script(script, line)
+            cmd = 'qsub -o {} -S /bin/bash -V -q {} -hold_jid {} -cwd -N {} -j y {}'.format(
+                  log, queue, ",".join(sublist), qcname, script)
 
         else:
-            print('Failed to parse ' + line)
+            print('ERROR: Failed to parse {}'.format(line))
             continue
 
         # open a subprocess, print the result to the console
         pipe = subprocess.Popen(cmd, shell=True,
                                      executable='/bin/bash',
-                                     stdout=subprocess.PIPE, 
+                                     stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
         out, err = pipe.communicate()
-        result = out.decode()
-        print(result)
+        print(out.decode())
 
 if __name__ == "__main__":
     main()
+

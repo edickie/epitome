@@ -11,6 +11,5 @@ def run(expt, clean):
     print('\n *** Adding PARAMS PURGE to the cleanup Queue! ***')
 
     fname = os.path.join(dir_data, expt, clean)
-    line = ('. ' + str(dir_pipe) + 
-            '/epitome/modules/cleanup/clean_params >> ' + fname)
-    os.system(line)
+    os.system('. {}/epitome/modules/cleanup/clean_params >> {}'.format(dir_pipe, fname))
+

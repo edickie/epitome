@@ -18,8 +18,6 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/linreg_t12mni_afni ' +
-                                               str(input_name) + ' ' +
-                                               str(dims))
+    line = '. ${{DIR_PIPE}}/modules/pre/linreg_t12mni_afni {} {}'.format(input_name, dims)
 
     return line, output

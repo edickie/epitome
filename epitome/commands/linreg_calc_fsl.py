@@ -16,10 +16,10 @@ def run(input_name):
 
         # set the cost function option
         print('\nRegistration cost function: (see FSL FLIRT for help)')
-        cost_fxns = {'mutualinfo' : '= Mutual Information [H(b)+H(s)-H(b,s)]', 
+        cost_fxns = {'mutualinfo' : '= Mutual Information [H(b)+H(s)-H(b,s)]',
                      'leastsq' : '=  Least Squares [Pearson Correlation]',
-                     'corratio' : '= Correlation Ratio (default)', 
-                     'normcorr' : '= Normalized Correlation', 
+                     'corratio' : '= Correlation Ratio (default)',
+                     'normcorr' : '= Normalized Correlation',
                      'labeldiff' : '= FSL magic!',
                      'bbr' : '= FSL magic!'}
 
@@ -35,8 +35,5 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/linreg_calc_fsl ' +
-                                               str(quality) + ' ' +
-                                               str(cost) + ' ' +
-                                               str(reg_dof))
+    line = '. ${{DIR_PIPE}}/modules/pre/linreg_calc_fsl {} {} {}'.format(quality, cost, reg_dof)
     return line, output

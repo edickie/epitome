@@ -18,7 +18,5 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/ica ' +
-                                      str(input_name) + ' ' +
-                                      str(mask_prefix))
+    line = '. ${{DIR_PIPE}}/modules/pre/ica {} {}'.format(input_name, mask_prefix)
     return line, output

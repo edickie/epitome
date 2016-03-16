@@ -41,21 +41,4 @@ for SESS in ${DIR_SESS}; do
     fi
 done
 
-# create group EPI mask in MNI space
-if [ -f ${DIR_DATA}/${DIR_EXPT}/anat_EPI_mask_MNI-lin_group.nii.gz ]; then
-    rm ${DIR_DATA}/${DIR_EXPT}/anat_EPI_mask_MNI-lin_group.nii.gz
-fi
-
-3dMean \
-    -datum short \
-    -prefix ${DIR_DATA}/${DIR_EXPT}/tmp_mean.nii.gz \
-    ${DIR_DATA}/${DIR_EXPT}/*/${DATA_TYPE}/*/anat_EPI_mask_MNI-lin.nii.gz
-
-3dcalc \
-    -a ${DIR_DATA}/${DIR_EXPT}/tmp_mean.nii.gz \
-    -expr 'step(a-0.999)' \
-    -prefix ${DIR_DATA}/${DIR_EXPT}/anat_EPI_mask_MNI-lin_group.nii.gz
-
-rm ${DIR_DATA}/${DIR_EXPT}/tmp_mean.nii.gz
-
 EOF
