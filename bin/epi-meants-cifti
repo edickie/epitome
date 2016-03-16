@@ -15,8 +15,6 @@ Options:
     --mask             brainmask
     --outputcsv PATH   Specify the output filename
     --surfaceonly      func or seed only contains surface data
-    --Lsurf SURF       Left-surface for analysis
-    --Rsurf SURF       Right-surface for analysis
     --debug            Debug logging
     -n,--dry-run       Dry run
 
@@ -54,8 +52,6 @@ def main():
     mask = arguments['--mask']
     outputcsv = arguments['--outputcsv']
     surfaceonly = arguments['--surfaceonly']
-    Lsurf = arguments['--Lsurf']
-    Rsurf = arguments['--Rsurf']
     DEBUG = arguments['--debug']
     DRYRUN = arguments['--dry-run']
 
@@ -104,38 +100,38 @@ def main():
 
     ## special case - where the label file only includes surfaces (i.e. aparc
     ## remove the volume bit from the functional
-    seeddim5=nib.load(seed).get_data().shape[5]
-    funcdim5=nib.load(func).get_data().shape[5]
 
     if surfaceonly:
-         if seeddim5 < funcdim5:
-             "if the seed is only surfaces - then we make a surface only func file to match"
-             tempLsurf=os.path.join(tempdir, 'Ltmp.func.gii')
-             tempRsurf=os.path.join(tempdir, 'Rtmp.func.gii')
-             newfunc=os.path.join(tempdir, 'funcsurfs.dtseries.nii')
-             docmd(['wb_command','-cifti-separate', func, 'COLUMN',
-                    '-metric', 'CORTEX_LEFT', tempLsurf,
-                    '-metric', 'CORTEX_RIGHT', tempRsurf])
-             docmd(['wb_command', '-cifti-create-dense-timeseries', newfunc,
-                '-left-metric', tempLsurf,
-                '-right-metric', tempRsurf])
-             func = newfunc
+        seeddim5=nib.load(seed).get_data().shape[5]
+        funcdim5=nib.load(func).get_data().shape[5]
+        if seeddim5 < funcdim5:
+         "if the seed is only surfaces - then we make a surface only func file to match"
+         tempLsurf=os.path.join(tempdir, 'Ltmp.func.gii')
+         tempRsurf=os.path.join(tempdir, 'Rtmp.func.gii')
+         newfunc=os.path.join(tempdir, 'funcsurfs.dtseries.nii')
+         docmd(['wb_command','-cifti-separate', func, 'COLUMN',
+                '-metric', 'CORTEX_LEFT', tempLsurf,
+                '-metric', 'CORTEX_RIGHT', tempRsurf])
+         docmd(['wb_command', '-cifti-create-dense-timeseries', newfunc,
+            '-left-metric', tempLsurf,
+            '-right-metric', tempRsurf])
+         func = newfunc
 
-         if seeddim5 > funcdim5:
-             '''
-             if the func is only surfaces (ex thickness)
-             we make a surface only seed file to match
-             '''
-             tempLsurf=os.path.join(tempdir, 'Ltmp.shape.gii')
-             tempRsurf=os.path.join(tempdir, 'Rtmp.shape.gii')
-             newseed=os.path.join(tempdir, 'seedsurfs.dscalar.nii')
-             docmd(['wb_command','-cifti-separate', seed, 'COLUMN',
-                    '-metric', 'CORTEX_LEFT', tempLsurf,
-                    '-metric', 'CORTEX_RIGHT', tempRsurf])
-             docmd(['wb_command', '-cifti-create-dense-scalar', newseed,
-                '-left-metric', tempLsurf,
-                '-right-metric', tempRsurf])
-             seed = newseed
+        if seeddim5 > funcdim5:
+         '''
+         if the func is only surfaces (ex thickness)
+         we make a surface only seed file to match
+         '''
+         tempLsurf=os.path.join(tempdir, 'Ltmp.shape.gii')
+         tempRsurf=os.path.join(tempdir, 'Rtmp.shape.gii')
+         newseed=os.path.join(tempdir, 'seedsurfs.dscalar.nii')
+         docmd(['wb_command','-cifti-separate', seed, 'COLUMN',
+                '-metric', 'CORTEX_LEFT', tempLsurf,
+                '-metric', 'CORTEX_RIGHT', tempRsurf])
+         docmd(['wb_command', '-cifti-create-dense-scalar', newseed,
+            '-left-metric', tempLsurf,
+            '-right-metric', tempRsurf])
+         seed = newseed
 
     # seeddim5=nib.load(seed).get_data().shape[5]
     # funcdim5=nib.load(func).get_data().shape[5]
@@ -151,7 +147,7 @@ def main():
 
     ## if mask exists - convert it, if not make one from the func.dscalar.nii
     if not mask:
-        docmd(['fslmaths', func_fnifti, '-Tmin', '-bin',  mask_fnifti])
+        docmd(['fslmaths', func_fnifti, '-Tmin','-add', '100', '-bin',  mask_fnifti])
     else:
         docmd(['wb_command','-cifti-convert', mask, mask_fnifti])
 
