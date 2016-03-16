@@ -206,7 +206,7 @@ def check_environment(mode='verbose'):
 
     if dir_fix == None:
         print('WARNING: FSL FIX is unavailable. Some modules will not work.')
-
+    print(DIR_DATA)
     if mode == 'verbose':
         txt = ('\nCurrent environment configuration:\n\n'
                '    data directory  -- {DIR_DATA}\n'

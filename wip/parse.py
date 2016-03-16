@@ -45,8 +45,10 @@ def main(filename):
         output = output[0]
         print('ERROR: More than one output defined for {}, using {}'.format(filename, output[0]))
 
+    print(prereq)
+    print(output)
     print(args)
-    print(header)
+
 if __name__ == '__main__':
     main(sys.argv[1])
 
