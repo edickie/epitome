@@ -221,7 +221,18 @@ def check_environment(mode='verbose'):
                '    hcp data        -- {hcp_data}\n'
                '    hcp tools       -- {hcp_tools}\n'
                '    wb_command      -- {wb_command}\n'.format(
-                    **vars()))
+                    DIR_DATA=DIR_DATA,
+                    dir_pipe=dir_pipe,
+                    dir_clone=dir_clone,
+                    dir_freesurfer=dir_freesurfer,
+                    dir_freesurfer_data=dir_freesurfer_data,
+                    DIR_AFNI=DIR_AFNI,
+                    dir_fsl=dir_fsl,
+                    dir_fix=dir_fix,
+                    DIR_MATLAB=DIR_MATLAB,
+                    hcp_data=dir_hcp_data,
+                    hcp_tools=dir_hcp_tools,
+                    wb_command=workbench))
         print(txt)
 
 def check_run(expt, subj, mode, sess, run):
@@ -531,7 +542,16 @@ def main():
             'export ID={ID}\n\n'
             'export PROC=${{DIR_DATA}}/${{DIR_EXPT}}/{proc}\n\n'
             'export SUBJECTS=$(epi-listsubj ${{DIR_DATA}}/${{DIR_EXPT}})\n\n'.format(
-                **vars()))
+                ID=ID,
+                cmd=cmd,
+                expt=expt,
+                mode=mode,
+                proc=proc,
+                user=user,
+                datetime=datetime,
+                dir_pipe=dir_pipe,
+                DIR_DATA=DIR_DATA,
+                DIR_MATLAB=DIR_MATLAB))
 
     if HCPMODE :
         # if hcp pipe env defined, use hcp-export
@@ -559,7 +579,17 @@ def main():
             'export ID=${{ID}}\n'
             'export SUB=${{SUB}}\n'
             """McRetroTS='{dir_pipe}/bin/run_McRetroTS.sh {DIR_MATLAB}'\n"""
-            'EOF\n\n'.format(**vars()))
+            'EOF\n\n'.format(
+                ID=ID,
+                cmd=cmd,
+                expt=expt,
+                mode=mode,
+                proc=proc,
+                user=user,
+                datetime=datetime,
+                dir_pipe=dir_pipe,
+                DIR_DATA=DIR_DATA,
+                DIR_MATLAB=DIR_MATLAB))
 
     p_list = [] # keeps track of our command-list
     line, output = epi.commands.init_basic.run()
