@@ -35,8 +35,6 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/reg_calc_hcpfsl ' +
-                                               str(quality) + ' ' +
-                                               str(cost) + ' ' +
-                                               str(reg_dof))
+    line = '. ${{DIR_PIPE}}/modules/pre/reg_calc_hcpfsl {} {} {}'.format(quality, cost, reg_dof)
     return line, output
+

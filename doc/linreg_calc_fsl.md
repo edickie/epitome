@@ -1,6 +1,6 @@
 linreg_calc_fsl
 ---------------
-Usage: linreg_calc_fsl <cost> <reg_dof> <data_quality>
+Usage: linreg_calc_fsl <data_quality> <cost> <reg_dof>
 
 + cost -- cost function minimized during registration (see FSL FLIRT).
 + reg_dof -- 6, 7, 9, or 12 degrees of freedom (see FSL FLIRT).

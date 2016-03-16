@@ -9,7 +9,7 @@ def run(input_name):
     output = 'lowpass'
 
     print('\nLow-passing each voxel time series.')
-    
+
     try:
         print('\nInput mask prefix (default = EPI_mask):')
         mask_prefix = raw_input('Mask Prefix: ')
@@ -32,9 +32,9 @@ def run(input_name):
                     flag = 1
                 else:
                     print('Window length must be odd!')
-        
+
         elif filter_type in ['kaiser', 'butterworth']:
-            
+
             print('\nInput cutoff frequency in Hz (default = 0.1 Hz):')
             lowpass_param = epi.utilities.selector_float()
 
@@ -43,9 +43,6 @@ def run(input_name):
         return '', None
 
     # otherwise we print the command and return it
-    line = ('. ${DIR_PIPE}/epitome/modules/pre/lowpass ' +
-                                           str(input_name) + ' ' + 
-                                           str(mask_prefix) + ' ' +
-                                           str(filter_type) + ' ' +
-                                           str(lowpass_param))
+    line = '. ${{DIR_PIPE}}/modules/pre/lowpass {} {} {} {}'.format(
+               input_name, mask_prefix, filter_type, lowpass_param)
     return line, output
