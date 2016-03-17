@@ -17,7 +17,7 @@ def selector_float():
     option = raw_input('#: ') # have the user enter a number
 
     # ensure response is non-negative
-    if option == 'stop': 
+    if option == 'stop':
         return 'stop'
     if option == '':
         option = -1
@@ -40,9 +40,9 @@ def selector_int():
     """
     option = raw_input('#: ') # have the user enter a number
 
-    if option == 'stop': 
+    if option == 'stop':
         return 'stop'
-    if option == '': 
+    if option == '':
         option = -1
 
     # check input
@@ -113,7 +113,7 @@ def selector_dict(item_dict):
     # retrieve the option number
     option = raw_input('option #: ')
 
-    if option == 'stop': 
+    if option == 'stop':
         return 'stop'
     if option == '':
         option = 0
@@ -238,6 +238,76 @@ def loadnii(filename):
     nifti = nifti.reshape(dims[0]*dims[1]*dims[2], dims[3])
 
     return nifti, affine, header, dims
+
+def loadcifti(filename):
+    """
+    Usage:
+        nifti, affine, header, dims = loadnii(filename)
+
+    Loads a Nifti file (3 or 4 dimensions).
+
+    Returns:
+        a 2D matrix of voxels x timepoints,
+        the input file affine transform,
+        the input file header,
+        and input file dimensions.
+    """
+
+    # load everything in
+    cifti = nib.load(filename)
+    affine = cifti.get_affine()
+    header = cifti.get_header()
+    dims = list(cifti.shape)
+
+    # if smaller than 3D
+    if len(dims) < 6:
+        raise Exception("""
+                        Your data is has less than 6 dims
+                        """)
+
+    # if smaller than 4D
+    if len(dims) > 6:
+        raise Exception("""
+                        Your data has over 6 dims
+                        """)
+
+    # load in nifti and reshape to 2D
+    cifti = cifti.get_data()
+    cifti = cifti.reshape(dims[0]*dims[1]*dims[2]*dims[3]*dims[4], dims[5])
+    cifti = np.transpose(cifti)
+
+    return cifti, affine, header, dims
+
+def load_gii_data(filename, intent='NIFTI_INTENT_NORMAL'):
+    """
+    Usage:
+        data = load_gii_data(filename)
+
+    Loads a gifti surface file (".shape.gii" or ".func.gii").
+
+    Returns:
+        a 2D matrix of vertices x timepoints,
+    """
+    ## use nibabel to load surface image
+    surf_dist_nib = nibabel.gifti.giftiio.read(filename)
+
+    ## gets number of arrays (i.e. TRs)
+    numDA = surf_dist_nib.numDA
+
+    ## read all arrays and concatenate in numpy
+    data = surf_dist_nib.getArraysFromIntent(intent)[0].data
+    if numDA >= 1:
+        for DA in range(1,numDA):
+            data = np.vstack((data, surf_dist_nib.getArraysFromIntent(intent)[DA].data))
+
+    ## transpose the data so that it is vertices by TR
+    data = np.transpose(data)
+
+    ## if the output is one dimensional, make it 2D
+    if len(data.shape) == 1:
+        data = data.reshape(data.shape[0],1)
+
+    return data
 
 def check_dims(data, mask):
     """
@@ -428,4 +498,3 @@ def init_shell(path, expt):
     output+='"'
 
     os.system('echo ' + str(output))
-
