@@ -8,6 +8,7 @@ import os, sys, copy
 import numpy as np
 import nibabel as nib
 import epitome as epi
+import nibabel.gifti.giftiio
 import epitome.commands as cmd
 
 def selector_float():

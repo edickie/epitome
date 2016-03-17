@@ -51,6 +51,7 @@ import subprocess
 import os
 import tempfile
 import shutil
+import epitome as epi
 from epitome.docopt import docopt
 
 ### Erin's little function for running things in the shell
@@ -59,16 +60,16 @@ def docmd(cmdlist):
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
 
-def image_basename_noext(fileaname):
+def image_basename_noext(filename):
     " returns basename of mr image without extention"
-    basename =  os.path.basename(func)
+    basename =  os.path.basename(filename)
     basename = basename.replace(".shape.gii","").replace(".func.gii","")
     basename = basename.replace(".dtseries","")
     basename = basename.replace(".dscalar","").replace(".dlabel","")
     basename = basename.replace(".nii","").replace(".gz","")
     return basename
 
-def load_surfaceonly(fileaname):
+def load_surfaceonly(filename, tempdir):
     '''
     separate a cifti file into surfaces,
     then loads and concatenates the surface data
@@ -76,14 +77,14 @@ def load_surfaceonly(fileaname):
     ## separate the cifti file into left and right surfaces
     L_data_surf=os.path.join(tempdir, 'Ldata.func.gii')
     R_data_surf=os.path.join(tempdir, 'Rdata.func.gii')
-    docmd(['wb_command','-cifti-separate', func, 'COLUMN',
+    docmd(['wb_command','-cifti-separate', filename, 'COLUMN',
         '-metric', 'CORTEX_LEFT', L_data_surf,
         '-metric', 'CORTEX_RIGHT', R_data_surf])
 
     ## load both surfaces and concatenate them together
     Ldata = epi.utilities.load_gii_data(L_data_surf)
     Rdata = epi.utilities.load_gii_data(R_data_surf)
-    data = np.hstack((Ldata, Rdata))
+    data = np.vstack((Ldata, Rdata))
 
     ## return the 2D concatenated surface data
     return data
@@ -117,7 +118,7 @@ def main():
     if ".dlabel.nii" in seed:
         longseed=os.path.join(tempdir,'seedmap.dscalar.nii')
         shortseed = os.path.join(tempdir,'seedmapcombined.dscalar.nii')
-        docmd(['wb_command', '-cifti-all-labels-to-rois', seed, 1,longseed])
+        docmd(['wb_command', '-cifti-all-labels-to-rois', seed, '1',longseed])
         num_maps = nib.load(longseed).get_data().shape[4]
         docmd(['wb_command', '-cifti-math', '(x*1)+(y*2)', shortseed,
               '-var','x',longseed, '-select','1',str(1),
@@ -135,19 +136,19 @@ def main():
         if the seed is only surfaces
         then we use wb_command -cifti-separate get the data as surfaces
         """
-        data = load_surfaceonly(func)
-        seed = load_surfaceonly(seed)
+        data = load_surfaceonly(func, tempdir)
+        seed = load_surfaceonly(seed, tempdir)
         if mask:
-            mask = load_surfaceonly(mask)
+            mask = load_surfaceonly(mask, tempdir)
     else:
 
         ## load the functional data according to filetype
         if 'dtseries.nii' in func or 'dscalar.nii' in func:
-            data, _, _, dims = epi.utilities.loadcifti(func)
+            data, _, _, _ = epi.utilities.loadcifti(func)
         elif '.shape.gii' in func or 'func.gii' in func:
             data = epi.utilities.load_gii_data(func)
         else:
-            data, _, _, dims = epi.utilities.loadnii(data)
+            data, _, _, _ = epi.utilities.loadnii(data)
 
         ## load the seed data according to filetype
         if 'dtseries.nii' in seed or 'dscalar.nii' in seed:
@@ -168,7 +169,7 @@ def main():
                 mask, _, _, _ = epi.utilities.loadnii(mask)
 
     ## check that dim 0 of both seed and func
-    if func.shape[0] != seed.shape[0]:
+    if data.shape[0] != seed.shape[0]:
         sys.exit('ERROR: at the func and seed images have difference number of voxels')
 
     if seed.shape[1] != 1:
@@ -183,11 +184,11 @@ def main():
 
     # init output vector
     rois = np.unique(seed)[1:]
-    out_data = np.zeros((len(rois), dims[3]))
+    out_data = np.zeros((len(rois), data.shape[1]))
 
     # get mean seed dataistic from each, append to output
     for i, roi in enumerate(rois):
-        idx_seed = np.where(seed == roi)[0]
+        idx = np.where(seed == roi)[0]
         out_data[i,:] = np.mean(data[idx, :], axis=0)
 
     # if pcorr:
