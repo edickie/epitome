@@ -72,15 +72,14 @@ docmd(['wb_command',
     os.path.join(tmpdir, 'R.func.gii'),
     '-enclosing'])
 
-## chop out the subcortical structures
-docmd(['wb_command',
-    '-volume-parcel-resampling',
-    input_nii,
-    os.path.join(hcp_subject_dir,'MNINonLinear','ROIs','ROIs.2.nii.gz'),
-    os.path.join(hcp_subject_dir,'MNINonLinear','ROIs','Atlas_ROIs.2.nii.gz'),
-    '2',
-    os.path.join(tmpdir, 'AtlasSubcortical.nii.gz')])
-
+# ## chop out the subcortical structures
+# docmd(['wb_command',
+#     '-volume-parcel-resampling',
+#     input_nii,
+#     os.path.join(hcp_subject_dir,'MNINonLinear','ROIs','ROIs.2.nii.gz'),
+#     os.path.join(hcp_subject_dir,'MNINonLinear','ROIs','Atlas_ROIs.2.nii.gz'),
+#     '2',
+#     os.path.join(tmpdir, 'AtlasSubcortical.nii.gz')])
 if dilate_mm:
     dense_out = os.path.join(tmpdir,'dense1.dscalar.nii')
 else:
@@ -91,7 +90,7 @@ docmd(['wb_command',
     '-cifti-create-dense-scalar',
     dense_out,
     '-volume',
-    os.path.join(tmpdir, 'AtlasSubcortical.nii.gz'),
+    input_nii,
     os.path.join(hcp_subject_dir,'MNINonLinear','ROIs','Atlas_ROIs.2.nii.gz'),
     '-left-metric',
     os.path.join(tmpdir, 'L.func.gii'),
