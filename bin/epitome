@@ -631,9 +631,9 @@ def main():
             flag = 1
 
     # add each subject to the proclist, close the subject loop
-    f.write('\nchmod 750 ${{CMD}}\n'
+    f.write('\nchmod 750 ${CMD}\n'
             '# append this subject to the process queue\n'
-            'echo ${{CMD}} >> ${{PROC}}\n'
+            'echo ${CMD} >> ${PROC}\n'
             'done\n\n'
             '# calls to QC programs\n')
 
