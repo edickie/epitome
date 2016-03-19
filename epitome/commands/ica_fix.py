@@ -19,7 +19,7 @@ def run(input_name):
         train_data = epi.utilities.selector_dict(train_data)
 
         # set the ICA THRESHOLD WTF IS THIS EVEN
-        print('\nThresholding. Default 20. See FSL FIX for help. I just work here (WTF FSL, seriously).')
+        print('\nThresholding. We normally go with 20. See FSL FIX for help')
         threshold = epi.utilities.selector_int()
 
         print('\nHave fix regress out motion paramaters?:')
@@ -45,4 +45,3 @@ def run(input_name):
     line = '. ${{DIR_PIPE}}/modules/pre/ica_fix {} {} {} {} {}'.format(
             input_name, train_data_path, threshold, motionregress, fixcleanup)
     return line, output
-
