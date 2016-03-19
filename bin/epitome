@@ -327,12 +327,10 @@ def check_directories(expt):
         print('     {} NIFTIs in {}'.format(str(mode_dict[mode_key]), str(mode_key)))
     print('')
 
-def writer(p_list, line, filename, f, output, bkup, mode):
+def writer(p_list, line, filename, f, output, bkup):
     """
     Writes lines to the master script.
     """
-    if mode == 'exp':
-        filename = '${{DIR_DATA}}/${{DIR_EXPT}}/{}'.format(filename)
 
     # output will == None if we made a mistake
     if output != None:
@@ -593,7 +591,7 @@ def main():
 
     p_list = [] # keeps track of our command-list
     line, output = epi.commands.init_basic.run()
-    p_list, output = writer(p_list, line, '${CMD}', f, output, None, 'sub')
+    p_list, output = writer(p_list, line, '${CMD}', f, output, None)
     used = ['init_basic'] # start the 'used module' list
 
     flag = 0
@@ -621,7 +619,7 @@ def main():
                 used.pop()
 
             # write line in script if successful
-            p_list, output = writer(p_list, line, '${CMD}', f, output, bkup, 'sub')
+            p_list, output = writer(p_list, line, '${CMD}', f, output, bkup)
 
         # print the current pipeline configuration, ask to continue
         print('Current pre-processing pipeline:')
@@ -658,7 +656,7 @@ def main():
 
             # executes the chosen module, write pipeline commands
             line, output = eval('epi.commands.{}.run(DIR_DATA, expt, mode)'.format(module))
-            p_list, output = writer(p_list, line, '${PROC}', f, output, bkup, 'exp')
+            p_list, output = writer(p_list, line, '${PROC}', f, output, bkup)
 
         # print the current pipeline configuration, ask to continue
         print('The QC pipeline currently looks like this:')
