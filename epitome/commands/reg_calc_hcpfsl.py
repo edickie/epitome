@@ -20,8 +20,7 @@ def run(input_name):
                      'leastsq' : '=  Least Squares [Pearson Correlation]',
                      'corratio' : '= Correlation Ratio (default)',
                      'normcorr' : '= Normalized Correlation',
-                     'labeldiff' : '= FSL magic!',
-                     'bbr' : '= FSL magic!'}
+                     'labeldiff' : '= FSL magic!'}
 
         cost = epi.utilities.selector_dict(cost_fxns)
 
@@ -37,4 +36,3 @@ def run(input_name):
     # otherwise we print the command and return it
     line = '. ${{DIR_PIPE}}/modules/pre/reg_calc_hcpfsl {} {} {}'.format(quality, cost, reg_dof)
     return line, output
-
