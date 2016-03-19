@@ -3,6 +3,5 @@
 def run(dir_data, expt, mode):
     output = ''
     print('\nAdding mask-checking QC to the outputs.')
-    line = '. ${{DIR_PIPE}}/epitome/modules/qc/qc_fsmasks {} {} {}'.format(dir_data, expt, mode)
+    line = '. ${{DIR_PIPE}}/modules/qc/qc_fsmasks ${DIR_DATA} ${DIR_EXPT} ${DATA_TYPE}'
     return line, output
-
