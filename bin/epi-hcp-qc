@@ -184,7 +184,7 @@ def write_index(qcdir, subjects, pic_name):
 
     # add the pic and a link to the subjects' page
     for subject in subjects:
-        subjectpage = os.path.join(qcdir,subject,'qc_{}.html'.format(subject))
+        subjectpage = os.path.join(qcdir,subject,'qc.html')
         pic = os.path.join(qcdir,subject,'{}.png'.format(pic_name))
         picrelpath = os.path.relpath(pic,os.path.dirname(htmlindex.name))
         subrelpath = os.path.relpath(subjectpage,os.path.dirname(htmlindex.name))
@@ -232,80 +232,87 @@ else:
 if not index_only or snaps_only:
     for subject in subjects:
         ## make the output directory
-        qc_subdir = os.path.join(qcdir,subject)
-        docmd(['mkdir','-p', qc_subdir])
-
-        ## make a tempdir for this subject
-        tmpdir = os.path.join(tmpdirbase,subject)
-        docmd(['mkdir','-p', tmpdir])
-
-        ## copy out template .scene file and find and replace the subid and hcppath
-        docmd(['mkdir',os.path.join(hcp_data_dir,'scene')])
-        scenefile = os.path.join(hcp_data_dir,'scene','qc{}_{}.scene'.format(qcmode,subject))
-        scenestream = open(scenefile,'w')
-        scene_txt = template_txt.replace('HCP_DATA_PATH/', hcp_data_dir)
-        scene_txt = scene_txt.replace('SUBJID',subject)
         if qcmode=='func2cifti':
-            scene_txt = scene_txt.replace('RSLTDIR', name_of_fmri)
-            scene_txt = scene_txt.replace('DTSERIESFILE', '{}_Atlas_s{}.dtseries.nii'.format(name_of_fmri,fwhm))
-            scene_txt = scene_txt.replace('SBREFFILE', '{}_SBRef.nii.gz'.format(name_of_fmri))
-        scenestream.write(scene_txt)
-        scenestream.close()
+            qc_subdir = os.path.join(qcdir,'{}_{}_sm{}'.format(subject,name_of_fmri,fwhm))
+        else:
+            qc_subdir = os.path.join(qcdir,subject)
+        qchtml = os.path.join(qc_subdir, 'qc.html'.format(subject))
+        if not os.path.isfile(qchtml):
+            docmd(['mkdir','-p', qc_subdir])
 
-        ## for func2cifti mode - change the palette on the SBREF file
-        if qcmode=='func2cifti':
-            docmd(['wb_command', '-volume-palette',
-                os.path.join(hcp_data_dir,subject,'MNINonLinear','Results',name_of_fmri,'{}_SBRef.nii.gz'.format(name_of_fmri)),
-                'MODE_AUTO_SCALE_PERCENTAGE',
-                '-disp-neg', 'false',
-                '-pos-percent', '25','98',
-                '-thresholding', 'THRESHOLD_TYPE_NORMAL', 'THRESHOLD_TEST_SHOW_OUTSIDE', '-500', '500',
-                '-palette-name','fsl_red'])
+            ## make a tempdir for this subject
+            tmpdir = os.path.join(tmpdirbase,subject)
+            docmd(['mkdir','-p', tmpdir])
 
-        ## write the header for the subjects qc page
-        qchtml = os.path.join(qc_subdir, 'qc_{}.html'.format(subject))
-        qchtml = open(qchtml,'w')
-        qchtml.write('<HTML><TITLE> qc {} {} </TITLE>\n'.format(subject,qcmode))
-        write_htmlheader(qchtml)
-        qchtml.write('<body>\n<h1> QC {} {}</h1>\n'.format(subject,qcmode))
+            ## copy out template .scene file and find and replace the subid and hcppath
+            docmd(['mkdir',os.path.join(hcp_data_dir,'scene')])
+            scenefile = os.path.join(hcp_data_dir,'scene','qc{}_{}.scene'.format(qcmode,subject))
+            scenestream = open(scenefile,'w')
+            scene_txt = template_txt.replace('HCP_DATA_PATH/', hcp_data_dir)
+            scene_txt = scene_txt.replace('SUBJID',subject)
+            if qcmode=='func2cifti':
+                scene_txt = scene_txt.replace('RSLTDIR', name_of_fmri)
+                scene_txt = scene_txt.replace('DTSERIESFILE', '{}_Atlas_s{}.dtseries.nii'.format(name_of_fmri,fwhm))
+                scene_txt = scene_txt.replace('SBREFFILE', '{}_SBRef.nii.gz'.format(name_of_fmri))
+            scenestream.write(scene_txt)
+            scenestream.close()
 
-        ## for each scene, generate the pics and add to qc page
-        for scene_dict in scene_list:
-            if scene_dict['Keep']==True:
-                pic = os.path.join(qcdir,subject,'{}.png'.format(scene_dict['Name']))
+            ## for func2cifti mode - change the palette on the SBREF file
+            if qcmode=='func2cifti':
+                docmd(['wb_command', '-volume-palette',
+                    os.path.join(hcp_data_dir,subject,'MNINonLinear','Results',name_of_fmri,'{}_SBRef.nii.gz'.format(name_of_fmri)),
+                    'MODE_AUTO_SCALE_PERCENTAGE',
+                    '-disp-neg', 'false',
+                    '-pos-percent', '25','98',
+                    '-thresholding', 'THRESHOLD_TYPE_NORMAL', 'THRESHOLD_TEST_SHOW_OUTSIDE', '-500', '500',
+                    '-palette-name','fsl_red'])
+
+            ## write the header for the subjects qc page
+            qchtml = open(qchtml,'w')
+            qchtml.write('<HTML><TITLE> qc {} {} </TITLE>\n'.format(subject,qcmode))
+            write_htmlheader(qchtml)
+            qchtml.write('<body>\n<h1> QC {} {}</h1>\n'.format(subject,qcmode))
+
+            ## for each scene, generate the pics and add to qc page
+            for scene_dict in scene_list:
+                if scene_dict['Keep']==True:
+                    pic = os.path.join(qcdir,subject,'{}.png'.format(scene_dict['Name']))
+                    picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
+                    qchtml.write('<a href="{}"><img src="{}"></a><br>\n'.format(picrelpath,picrelpath))
+                else:
+                    pic = os.path.join(tmpdir,'{}.png'.format(scene_dict['Name']))
+                if scene_dict['SplitHorizontal']==True:
+                    tmppic = os.path.join(tmpdir, "scene{}.png".format(scene_dict['Idx']))
+                    docmd(['wb_command', '-show-scene',
+                            scenefile, str(scene_dict['Idx']),
+                            tmppic,'600', '400'])
+                    png_SplitHorizontal(tmppic,pic,tmpdir)
+                else:
+                    docmd(['wb_command', '-show-scene',
+                            scenefile, str(scene_dict['Idx']),
+                            pic,'600', '400'])
+
+            for montage_dict in montage_list:
+                pic = os.path.join(qcdir,subject,'{}.png'.format(montage_dict['Name']))
                 picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
                 qchtml.write('<a href="{}"><img src="{}"></a><br>\n'.format(picrelpath,picrelpath))
-            else:
-                pic = os.path.join(tmpdir,'{}.png'.format(scene_dict['Name']))
-            if scene_dict['SplitHorizontal']==True:
-                tmppic = os.path.join(tmpdir, "scene{}.png".format(scene_dict['Idx']))
-                docmd(['wb_command', '-show-scene',
-                        scenefile, str(scene_dict['Idx']),
-                        tmppic,'600', '400'])
-                png_SplitHorizontal(tmppic,pic,tmpdir)
-            else:
-                docmd(['wb_command', '-show-scene',
-                        scenefile, str(scene_dict['Idx']),
-                        pic,'600', '400'])
+                montage_cmd=['montage', '-mode', 'concatenate', '-tile', montage_dict['Layout']]
+                for subpic in montage_dict['Pics']:
+                    #should add something that read scenelist to find if temp
+                    montage_cmd.append(os.path.join(tmpdir,'{}.png'.format(subpic)))
+                montage_cmd.append(pic)
+                docmd(montage_cmd)
 
-        for montage_dict in montage_list:
-            pic = os.path.join(qcdir,subject,'{}.png'.format(montage_dict['Name']))
-            picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
-            qchtml.write('<a href="{}"><img src="{}"></a><br>\n'.format(picrelpath,picrelpath))
-            montage_cmd=['montage', '-mode', 'concatenate', '-tile', montage_dict['Layout']]
-            for subpic in montage_dict['Pics']:
-                #should add something that read scenelist to find if temp
-                montage_cmd.append(os.path.join(tmpdir,'{}.png'.format(subpic)))
-            montage_cmd.append(pic)
-            docmd(montage_cmd)
-
-        ## close the htmlpage stream
-        qchtml.close()
-        ## remove the subjects scene file
-        if not DEBUG: docmd(['rm', scenefile])
+            ## close the htmlpage stream
+            qchtml.close()
+            ## remove the subjects scene file
+            if not DEBUG: docmd(['rm', scenefile])
+    if not DEBUG: docmd(['rmdir', os.path.join(hcp_data_dir,'scene')]])
 
 ## Start the index html file
 if index_only or not snaps_only:
+    if qcmode=='func2cifti':
+        subjects = epi.utilities.get_subj(qcdir)
     for scene_dict in scene_list:
         if scene_dict['MakeIndex']==True:
             write_index(qcdir, subjects, scene_dict['Name'])
