@@ -102,7 +102,9 @@ QCmodes = {
     'native':{
         "TemplateFile":'native_template.scene',
         "scene_list" :  [
-            {"Idx": 1, "Name": "aparc1",            "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
+            {"Idx": 10, "Name": "asegVolAx",  "MakeIndex": True,  "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 9, "Name": "asegVolCor", "MakeIndex": False, "SplitHorizontal" : True,"Keep":True},
+            {"Idx": 11, "Name": "asegVolSag", "MakeIndex": True, "SplitHorizontal" : True,"Keep":True},
             {"Idx": 2, "Name": "VolSurfOutlineAx",  "MakeIndex": True,  "SplitHorizontal" : True,"Keep":True},
             {"Idx": 3, "Name": "VolSurfOutlineCor", "MakeIndex": False, "SplitHorizontal" : True,"Keep":True},
             {"Idx": 4, "Name": "VolSurfOutlineSag", "MakeIndex": True, "SplitHorizontal" : True,"Keep":True},
@@ -110,7 +112,9 @@ QCmodes = {
             {"Idx": 6, "Name": "AllRight",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
             {"Idx": 7, "Name": "AllVentral",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
             {"Idx": 8, "Name": "AllDorsal",          "MakeIndex": False,  "SplitHorizontal" : False, "Keep": False},
-            {"Idx": 9, "Name": "thickness",          "MakeIndex": True,  "SplitHorizontal" : True, "Keep": True}],
+            {"Idx": 12, "Name": "Curvature",          "MakeIndex": True,  "SplitHorizontal" : True, "Keep": True},
+            {"Idx": 13, "Name": "thickness",          "MakeIndex": True,  "SplitHorizontal" : True, "Keep": True},
+            {"Idx": 1, "Name": "aparc1",            "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True}],
         "montage_list" : [{"Name": "CombinedView",
                        "Pics":["AllLeft","AllRight","AllDorsal","AllVentral"],
                        "Layout":"4x1",
@@ -178,7 +182,7 @@ def write_index(qcdir, subjects, pic_name):
     htmlindex = open(htmlindex,'w')
 
     # write the header and title line
-    htmlindex.write('<HTML><TITLE> QC {} </TITLE>\n'.format(pic_name))
+    htmlindex.write('<!DOCTYPE html>\n<HTML><TITLE> QC {} </TITLE>\n'.format(pic_name))
     write_htmlheader(htmlindex)
     htmlindex.write('<body>\n<h1> QC {}</h1>\n'.format(pic_name))
 
@@ -213,7 +217,7 @@ template_txt = open(template_scene, 'r').read()
 
 ## get the hcp_data_dir - cause we use it a lot
 hcp_data_dir = epi.config.find_hcp_data()
-
+docmd(['mkdir',os.path.join(hcp_data_dir,'scene')])
 #mkdir a tmpdir for the
 tmpdirbase = tempfile.mkdtemp()
 #tmpdirbase = os.path.join(hcp_data_dir,'temp')
@@ -245,7 +249,6 @@ if not index_only or snaps_only:
             docmd(['mkdir','-p', tmpdir])
 
             ## copy out template .scene file and find and replace the subid and hcppath
-            docmd(['mkdir',os.path.join(hcp_data_dir,'scene')])
             scenefile = os.path.join(hcp_data_dir,'scene','qc{}_{}.scene'.format(qcmode,subject))
             scenestream = open(scenefile,'w')
             scene_txt = template_txt.replace('HCP_DATA_PATH/', hcp_data_dir)
@@ -269,7 +272,7 @@ if not index_only or snaps_only:
 
             ## write the header for the subjects qc page
             qchtml = open(qchtml,'w')
-            qchtml.write('<HTML><TITLE> qc {} {} </TITLE>\n'.format(subject,qcmode))
+            qchtml.write('<!DOCTYPE html>\n<HTML><TITLE> qc {} {} </TITLE>\n'.format(subject,qcmode))
             write_htmlheader(qchtml)
             qchtml.write('<body>\n<h1> QC {} {}</h1>\n'.format(subject,qcmode))
 
@@ -307,7 +310,7 @@ if not index_only or snaps_only:
             qchtml.close()
             ## remove the subjects scene file
             if not DEBUG: docmd(['rm', scenefile])
-    if not DEBUG: docmd(['rmdir', os.path.join(hcp_data_dir,'scene')]])
+
 
 ## Start the index html file
 if index_only or not snaps_only:
@@ -320,5 +323,6 @@ if index_only or not snaps_only:
         if montage_dict['MakeIndex']==True:
             write_index(qcdir, subjects, montage_dict['Name'])
 
+if not DEBUG: docmd(['rmdir', os.path.join(hcp_data_dir,'scene')])
 #get rid of the tmpdir
 shutil.rmtree(tmpdirbase)
