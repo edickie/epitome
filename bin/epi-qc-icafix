@@ -234,9 +234,9 @@ for featdir in featdirs:
 
     ## write this info to csvreport
     idx = csvreport[csvreport.featdir == featdir].index[0]
-    csvreport['PercentExcluded'][idx] = PercentExcluded
-    csvreport['NumSignal'][idx] = NumSignal
-    csvreport['numICs'][idx] = numICs
+    csvreport.loc[idx,'PercentExcluded'] = PercentExcluded
+    csvreport.loc[idx,'NumSignal'] = NumSignal
+    csvreport.loc[idx,'numICs'] = numICs
 
 
 ## finish the file
