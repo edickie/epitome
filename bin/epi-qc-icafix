@@ -252,7 +252,7 @@ if copyqcdir:
     docmd(['mkdir','-p',copyqcdir])
     docmd(['cp',htmlindexfile, os.path.join(copyqcdir,os.path.basename(htmlindexfile))])
     for featdir in featdirs:
-        docmd(['mkdir','-p',os.path.join(copyqcdir,featdir)])
+        docmd(['mkdir','-p',os.path.join(copyqcdir,featdir,'filtered_func_data.ica')])
         docmd(['cp',
             os.path.join(featdir,"{}_labels_report.html".format(labelbasename)),
             os.path.join(copyqcdir,featdir,"{}_labels_report.html".format(labelbasename))])
