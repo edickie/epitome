@@ -4,7 +4,7 @@ Makes pictures of standard views from the hcp files and pastes them
 together into a qcpage.
 
 Usage:
-    epi-qc-fs2hcp [options] <QCmode>
+    epi-hcp-qc [options] <QCmode>
 
 Arguments:
   <QCmode>                 Type of QC to do ("MNIfsaverage32k","native" or "func2cifti")
@@ -16,6 +16,8 @@ Options:
   --subject STR            Subject ID to process
   --NameOffMRI STR         For func2cifti, "NameoffMRI" option given
   --SmoothingFWHM STR      For func2cifti, "SmoothingFWHM" option given
+  --subjects-filter        A string that can be used to filter out subject directories
+  --use-all-dirs           Turn off automatic filtering of subject ids (to remove 'bin'ect)
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -47,7 +49,9 @@ The "--subject" option can be used to run only the specified subject id for test
 
 Requires connectome workbench (i.e. wb_command and imagemagick)
 
-
+By default, directories with "logs", 'bin', 'qc' and 'scene' in their name will
+be removed from the subjects list.  If these strings are in the subjects id, you
+can turn this behaviour off using the '--use-all-dirs' flag.
 Written by Erin W Dickie, Feb 2016
 """
 
@@ -70,6 +74,8 @@ subid           = arguments['--subject']
 qcdir           = arguments['--qcdir']
 name_of_fmri    = arguments['--NameOffMRI']
 fwhm            = arguments['--SmoothingFWHM']
+subjects_filter = arguments['--subjects-filter']
+use_all_dirs    = arguments['--use-all-dirs']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -231,6 +237,14 @@ if subid:
     subjects = [subid]
 else:
     subjects = epi.utilities.get_subj(hcp_data_dir)
+    if subjects_filter:
+        subjects = filter(lambda x: subjects_filter in x, subjects)
+    ## remove common directories that are not subjects from subjects list
+    if not use_all_dirs:
+        subjects = filter(lambda x: 'logs' not in x, subjects)
+        subjects = filter(lambda x: 'bin' not in x, subjects)
+        subjects = filter(lambda x: 'qc_' not in x, subjects)
+        subjects = filter(lambda x: 'scene' not in x, subjects)
 
 ## make pics and qcpage for each subject
 if not index_only or snaps_only:
