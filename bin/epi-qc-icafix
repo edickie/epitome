@@ -85,13 +85,17 @@ def get_SignalandNoise(inputdir, inputlabelfile, numICs) :
         if lines:
             first_line = lines[:1]
             last_line = lines[-1]
-        bad_ica = last_line.split(',')
-        for i in range(len(bad_ica)):
-            bad_ica[i] = bad_ica[i].replace('[','')
-            bad_ica[i] = bad_ica[i].replace(']','')
-            bad_ica[i] = bad_ica[i].replace(' ','')
-            bad_ica[i] = bad_ica[i].replace('\n','')
-        bad_ica = map(int,bad_ica)
+        ## if bad icas are empty, set the empty list, if not set to mat to int
+        if last_line == '[]':
+            bad_ica = []
+        else:
+            bad_ica = last_line.split(',')
+            for i in range(len(bad_ica)):
+                bad_ica[i] = bad_ica[i].replace('[','')
+                bad_ica[i] = bad_ica[i].replace(']','')
+                bad_ica[i] = bad_ica[i].replace(' ','')
+                bad_ica[i] = bad_ica[i].replace('\n','')
+            bad_ica = map(int,bad_ica)
     else:
         sys.exit("IC labels file {} not found".format(labelpath))
 
