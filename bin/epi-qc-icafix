@@ -94,17 +94,18 @@ def get_SignalandNoise(inputdir, inputlabelfile, numICs) :
             bad_ica[i] = bad_ica[i].replace('\n','')
 
         ## if bad icas are empty, set the empty list, if not set to mat to int
-        if bad_ica == '':
+        if bad_ica == ['']:
             bad_ica = []
         else:
             bad_ica = map(int,bad_ica)
+            if max(bad_ica) > numICs:
+                print("We have a problem, more labels in {} than ICs".format(inputlabelfile))
+                print("Number of ICs: {}".format(numICs))
+                print("Labeled Bad ICs {}".format(bad_ica))
+
     else:
         sys.exit("IC labels file {} not found".format(labelpath))
 
-    if  max(bad_ica) > numICs:
-        print("We have a problem, more labels in {} than ICs".format(inputlabelfile))
-        print("Number of ICs: {}".format(numICs))
-        print("Labeled Bad ICs {}".format(bad_ica))
 
     good_ica = list(set(range(1,numICs+1)) - set(bad_ica))
     return(good_ica,bad_ica)
