@@ -94,6 +94,7 @@ fslmaths ${ResultsFolder}/${NameOffMRI}.nii.gz -Tmean ${VolumefMRI}_SBRef.nii.gz
 
 TR_num=`fslval ${VolumefMRI}.nii.gz dim4 | cut -d " " -f 1`
 MiddleTR="$(($TR_num/2))"
+TR_vol=`fslval ${VolumefMRI}.nii.gz pixdim4 | cut -d " " -f 1`
 
 #Make fMRI Ribbon
 #Noisy Voxel Outlier Exclusion
@@ -250,7 +251,6 @@ fi
 #Generation of Dense Timeseries
 if [ ! -f "$VolumefMRI"_Atlas_s${SmoothingFWHM}.dtseries.nii ]; then
   log_Msg "Generation of Dense Timeseries"
-    TR_vol=`fslval "$NameOffMRI" pixdim4 | cut -d " " -f 1`
 
     ${CARET7DIR}/wb_command -cifti-create-dense-timeseries \
     "$VolumefMRI"_Atlas_s${SmoothingFWHM}.dtseries.nii  \
