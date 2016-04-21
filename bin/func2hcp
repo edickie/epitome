@@ -43,9 +43,9 @@ log_Msg "Parsing Command Line Options"
 # parse arguments
 InputfMRI=`opts_GetOpt1 "--InputfMRI" $@`  # "$2"
 HCPFolder=`opts_GetOpt1 "--HCPpath" $@`  # "$2"
-Subject=`opts_GetOpt1 "--subject" $@`  # "$2"
+Subject=`opts_GetOpt1 "--Subject" $@`  # "$2"
 NameOffMRI=`opts_GetOpt1 "--OutputBasename" $@`  # "$2"
-SmoothingFWHM=`opts_GetOpt1 "--smoothingFWHM" $@`  # "${3}"
+SmoothingFWHM=`opts_GetOpt1 "--SmoothingFWHM" $@`  # "${3}"
 DilateBelowPct=`opts_GetOpt1 "--DilationThreshold" $@`
 
 if [ "${RegName}" = "" ]; then

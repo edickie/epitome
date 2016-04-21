@@ -4,11 +4,11 @@ Makes temporary seed corr maps using 3 rois of interest
 then makes pretty picture of these maps.
 
 Usage:
-    epi-RSN-vis [options] <NameOffMRI> <SmoothingFWHM>
+    epi-RSN-vis [options] <OutputBasename> <SmoothingFWHM>
 
 Arguments:
-    <NameOffMRI>             For func2cifti, "NameoffMRI" option given
-    <SmoothingFWHM>          For func2cifti, "SmoothingFWHM" option given
+    <OutputBasename>         The "NameoffMRI" option given when converting to cifti
+    <SmoothingFWHM>          The "SmoothingFWHM" option given when converting to cifti
 
 Options:
   --snaps-only             Do not write the index pages, only do subject pics
@@ -65,7 +65,7 @@ snaps_only      = arguments['--snaps-only']
 index_only      = arguments['--index-only']
 subid           = arguments['--subject']
 qcdir           = arguments['--qcdir']
-name_of_fmri    = arguments['<NameOffMRI>']
+name_of_fmri    = arguments['<OutputBasename>']
 fwhm            = arguments['<SmoothingFWHM>']
 subjects_filter = arguments['--subjects-filter']
 use_all_dirs    = arguments['--use-all-dirs']

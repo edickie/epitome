@@ -14,7 +14,7 @@ Options:
   --index-only             Only write the index pages, do not take subject pics
   --qcdir PATH             Full path to location of QC directory
   --subject STR            Subject ID to process
-  --NameOffMRI STR         For func2cifti, "NameoffMRI" option given
+  --OutputBasename STR     For func2cifti, "OutputBasename" option given
   --SmoothingFWHM STR      For func2cifti, "SmoothingFWHM" option given
   --subjects-filter STR    A string that can be used to filter out subject directories
   --use-all-dirs           Turn off automatic filtering of subject ids (to remove 'bin'ect)
@@ -72,7 +72,7 @@ snaps_only      = arguments['--snaps-only']
 index_only      = arguments['--index-only']
 subid           = arguments['--subject']
 qcdir           = arguments['--qcdir']
-name_of_fmri    = arguments['--NameOffMRI']
+name_of_fmri    = arguments['--OutputBasename']
 fwhm            = arguments['--SmoothingFWHM']
 subjects_filter = arguments['--subjects-filter']
 use_all_dirs    = arguments['--use-all-dirs']
