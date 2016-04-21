@@ -94,7 +94,7 @@ QCmodes = {
             {"Idx": 8, "Name": "VolSag",  "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True},
             {"Idx": 1, "Name": "dtLat",     "MakeIndex": True,  "SplitHorizontal" : True, "Keep":True}],
         "montage_list" : [{"Name": "CombinedView",
-                       "Pics":["dtDorsal","dtVentral","dtAnt","dtPost"],
+                       "Pics":["dtAnt","dtPost","dtDorsal","dtVentral"],
                        "Layout":"4x1",
                        "MakeIndex": True}]
     }
@@ -220,7 +220,7 @@ if not index_only or snaps_only:
                     name_of_fmri, '{}_Atlas_s{}.dtseries.nii'.format(name_of_fmri,fwhm))
 
 
-            if not os.path.exits(func):
+            if not os.path.isfile(func):
                 print("{} not found...skipping".format(func))
                 continue
 
