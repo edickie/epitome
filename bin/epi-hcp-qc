@@ -173,6 +173,8 @@ def write_htmlheader(htmlhandle):
                 '        text-align: center;\n'
                 '        color: white;\n'
                 '        background-color:#333333;}\n'
+                'a:link {color: #01DFD7;}\n'
+                'a:visited  {color: #AC58FA;}\n'
                 'img {width:90%; \n'
                 '   display: block\n;'
                 '   margin-left: auto;\n'
