@@ -41,6 +41,12 @@ VERBOSE       = arguments['--verbose']
 DEBUG         = arguments['--debug']
 DRYRUN        = arguments['--dry-run']
 
+
+#mkdir a tmpdir for the
+global RADIUS_SAMPLING='5'
+global RADIUS_SEARCH='10'
+tmpdir = tempfile.mkdtemp()
+
 ###
 if DEBUG: print(arguments)
 ### Erin's little function for running things in the shell
@@ -50,7 +56,7 @@ def docmd(cmdlist):
     if not DRYRUN: subprocess.call(cmdlist)
 
 ## measuring distance
-def calc_surf_distance(surf, orig_vertex, target_vertex, radius_search, tmpdir):
+def calc_surf_distance(surf, orig_vertex, target_vertex, radius_search, tmpdir=tmpdir):
     '''
     uses wb_command -surface-geodesic-distance command to measure
     distance between two vertices on the surface
@@ -62,6 +68,21 @@ def calc_surf_distance(surf, orig_vertex, target_vertex, radius_search, tmpdir):
     distances = epi.utilities.load_gii_data(surf_distance)
     distance = distances[target_vertex,0]
     return(distance)
+
+def calc_distance_column(df, orig_vertex_col, target_vertex_col,
+                        distance_outcol, surfL, surfR, tmpdir=tmpdir, radius_search=RADIUS_SEARCH):
+    df.loc[:,distance_outcol] = -99.9
+    for idx in df.index.tolist():
+        orig_vertex = df.loc[idx, orig_vertex_col]
+        target_vertex = df.loc[idx, target_vertex_col]
+        hemi = df.loc[idx,'hemi']
+        if hemi == "L":
+            df.loc[idx, distance_outcol] = calc_surf_distance(surfL, orig_vertex,
+                                            peakvert, radius_search, tmpdir)
+        if hemi == "R":
+            df.loc[idx, distance_outcol] = calc_surf_distance(surfR, orig_vertex,
+                                            peakvert, radius_search, tmpdir)
+    return df
 
 def load_surfaceonly(filename, tempdir):
     '''
@@ -103,10 +124,6 @@ def roi_surf_data(df, vertex_colname, surf, hemisphere, roi_radius, tmpdir):
     return rois_data
 
 
-#mkdir a tmpdir for the
-tmpdir = tempfile.mkdtemp()
-radius_sampling='5'
-radius_search='10'
 
 ## loading the dataframe
 df = pd.read_csv(origcsv)
@@ -119,7 +136,8 @@ func_data = np.vstack((func_dataL, func_dataR))
 
 vertex_incol = 'vertex'
 iter_num = 0
-while iter_num < 100:
+max_distance = 10
+while iter_num < 100 or max_distance > 0.1:
 
     vertex_outcol = 'vertex_{}'.format(iter_num)
     distance_outcol = 'dist_{}'.format(iter_num)
@@ -127,15 +145,15 @@ while iter_num < 100:
     df.loc[:,distance_outcol] = -99.9
 
     ## load the sampling data
-    sampling_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L', radius_sampling, tmpdir)
-    sampling_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R', radius_sampling, tmpdir)
+    sampling_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L')
+    sampling_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R')
     sampling_rois = np.vstack((sampling_rois_L, sampling_rois_R))
     del sampling_rois_R
     del sampling_rois_L
 
     ## load the search data
-    search_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L', radius_search, tmpdir)
-    search_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R', radius_search, tmpdir)
+    search_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L')
+    search_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R')
     search_rois = np.vstack((search_rois_L, search_rois_R))
     del search_rois_L
     del search_rois_R
@@ -161,17 +179,24 @@ while iter_num < 100:
         peakvert = np.argmax(seed_corrs, axis=0)
         if hemi =='R': peakvert = peakvert - num_Lverts
         df.loc[idx,vertex_outcol] = peakvert
-        if hemi == "L":
-            df.loc[idx, distance_outcol] = calc_surf_distance(surfL, orig_vertex,
-                                            peakvert, radius_search, tmpdir)
-        if hemi == "R":
-            df.loc[idx, distance_outcol] = calc_surf_distance(surfR, orig_vertex,
-                                            peakvert, radius_search, tmpdir)
-        max_distance = max(df[distance_outcol])
 
+    ## calc the distances
+    df  = calc_distance_column(df, vertex_incol, vertex_outcol,
+                            distance_outcol, surfL, surfR)
+
+    ## print the max distance as things continue..
+    max_distance = max(df[distance_outcol])
     print('Iteration {} max distance: {}'.format(iter_num, max_distance))
     vertex_incol = vertex_outcol
     iter_num += 1
-    
+
+## calc a final distance column
+df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
+df  = calc_distance_column(df, 'vertex', 'ivertex',
+                        'distance', surfL, surfR)
+
+cols_to_export = c('hemi','NETWORK','roiidx','vertex','ivertex','distance')
+
+
 #get rid of the tmpdir
 shutil.rmtree(tmpdir)
