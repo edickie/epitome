@@ -81,23 +81,24 @@ def load_surfaceonly(filename, tempdir):
 
     return Ldata, Rdata
 
-def roi_surf_data(df, surf, hemisphere, roi_radius, tmpdir):
+def roi_surf_data(df, vertex_colname, surf, hemisphere, roi_radius, tmpdir):
     '''
     uses wb_command -surface-geodesic-rois to build rois (3D files)
     then load and collasp that into 1D array
     '''
     ## right the L and R hemisphere vertices from the table out to temptxt
     vertex_list = os.path.join(tmpdir, 'vertex_list.txt')
-    df[df.hemisphere == hemisphere].vertex.to_csv(vertex_list,sep='\n',index=False)
+    df.loc[df.hemi == hemisphere, vertex_colname].to_csv(vertex_list,sep='\n',index=False)
 
     ## from the temp text build - func masks and target masks
     roi_surf = os.path.join(tmpdir,'roi_surf.func.gii')
-    docmd(['wb_command', '-surface-geodesic-rois', surf, vertex_list,
-        str(roi_radius), -overlap-logic, 'EXCLUDE',roi_surf])
+    docmd(['wb_command', '-surface-geodesic-rois', surf,
+        str(roi_radius),  vertex_list, roi_surf,
+        '-overlap-logic', 'EXCLUDE'])
 
-    vlabels = df[df.hemisphere == hemisphere].roiidx.tolist()
+    vlabels = df[df.hemi == hemisphere].roiidx.tolist()
     rois_data = epi.utilities.load_gii_data(roi_surf)
-    rois_data = np.multiply(rois_data, vlables)
+    rois_data = np.multiply(rois_data, vlabels)
 
     return rois_data
 
@@ -110,50 +111,67 @@ radius_search='10'
 ## loading the dataframe
 df = pd.read_csv(origcsv)
 df.loc[:,'roiidx'] = pd.Series(np.arange(1,len(df.index)+1), index=df.index)
-df.loc[:,'ivertex'] = -999
-df.loc[:,'distance'] = -99.9
 
 ## load the func data
 func_dataL, func_dataR = load_surfaceonly(func, tmpdir)
 num_Lverts = func_dataL.shape[0]
 func_data = np.vstack((func_dataL, func_dataR))
 
-## load the sampling data
-sampling_rois_L = roi_surf_data(df, surfL, 'L', radius_sampling, tmpdir)
-sampling_rois_R = roi_surf_data(df, surfR, 'R', radius_sampling, tmpdir)
-sampling_rois = np.vstack((sampling_rois_L, sampling_rois_R))
-del sampling_rois_R sampling_rois_L
+vertex_incol = 'vertex'
+iter_num = 0
+while iter_num < 100:
 
-## load the search data
-search_rois_L = roi_surf_data(df, surfL, 'L', radius_search, tmpdir)
-search_rois_R = roi_surf_data(df, surfR, 'R', radius_search, tmpdir)
-search_rois = np.vstack((search_rois_L, search_rois_R))
-del search_rois_L search_rois_R
+    vertex_outcol = 'vertex_{}'.format(iter_num)
+    distance_outcol = 'dist_{}'.format(iter_num)
+    df.loc[:,vertex_outcol] = -999
+    df.loc[:,distance_outcol] = -99.9
 
-for idx in df.index.tolist():
-    vlabel = df.loc[idx,'roiidx']
-    network = df.loc[idx,'NETWORK']
-    hemi = df.loc[idx,'hemisphere']
-    netlabels = list(set(df[df.NETWORK == network].roiidx.tolist()) - set([vlabel]))
-    netseeds = []
-    for netlabel in netlabels:
-        netseeds = np.hstack(netseeds,np.where(sampling_rois == netlabel)[0])
-    meants = np.mean(func_data[netseeds, :], axis=0)
-    idx_mask = np.where(search_rois == vlabel)[0]
-    # create output array
-    seed_corrs = np.zeros(func_data.shape)
-    # look through each time series, calculating r
-    for i in np.arange(len(idx_mask)):
-        seed_corrs[idx_mask[i]] = np.corrcoef(meants, func[idx_mask[i], :])[0][1]
-    peakvert = numpy.argmax(seed_corrs, axis=0, out=None)
-    if hemi =='R': peakvert = peakvert - num_Lverts
-    df.loc[idx,'ivertex'] = peakvert
-    if hemi == "L":
-        df.loc[idx, 'distance'] = calc_surf_distance(surfL, orig_vertex,
-                                        peakvert, radius_search, tmpdir)
-    if hemi == "R":
-        df.loc[idx, 'distance'] = calc_surf_distance(surfR, orig_vertex,
-                                        peakvert, radius_search, tmpdir)                                    
+    ## load the sampling data
+    sampling_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L', radius_sampling, tmpdir)
+    sampling_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R', radius_sampling, tmpdir)
+    sampling_rois = np.vstack((sampling_rois_L, sampling_rois_R))
+    del sampling_rois_R
+    del sampling_rois_L
 
+    ## load the search data
+    search_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L', radius_search, tmpdir)
+    search_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R', radius_search, tmpdir)
+    search_rois = np.vstack((search_rois_L, search_rois_R))
+    del search_rois_L
+    del search_rois_R
+
+    for idx in df.index.tolist():
+        vlabel = df.loc[idx,'roiidx']
+        network = df.loc[idx,'NETWORK']
+        hemi = df.loc[idx,'hemi']
+        orig_vertex = df.loc[idx, vertex_incol]
+        netlabels = list(set(df[df.NETWORK == network].roiidx.tolist()) - set([vlabel]))
+        netseeds = []
+        for netlabel in netlabels:
+            netseeds = np.hstack((netseeds,np.where(sampling_rois == netlabel)[0]))
+        meants = np.mean(func_data[netseeds.astype(int), :], axis=0)
+        idx_mask = np.where(search_rois == vlabel)[0]
+
+        # create output array
+        seed_corrs = np.zeros(func_data.shape[0])
+
+        # loop through each time series, calculating r
+        for i in np.arange(len(idx_mask)):
+            seed_corrs[idx_mask[i]] = np.corrcoef(meants, func_data[idx_mask[i], :])[0][1]
+        peakvert = np.argmax(seed_corrs, axis=0)
+        if hemi =='R': peakvert = peakvert - num_Lverts
+        df.loc[idx,vertex_outcol] = peakvert
+        if hemi == "L":
+            df.loc[idx, distance_outcol] = calc_surf_distance(surfL, orig_vertex,
+                                            peakvert, radius_search, tmpdir)
+        if hemi == "R":
+            df.loc[idx, distance_outcol] = calc_surf_distance(surfR, orig_vertex,
+                                            peakvert, radius_search, tmpdir)
+        max_distance = max(df[distance_outcol])
+
+    print('Iteration {} max distance: {}'.format(iter_num, max_distance))
+    vertex_incol = vertex_outcol
+    iter_num += 1
+    
 #get rid of the tmpdir
 shutil.rmtree(tmpdir)
