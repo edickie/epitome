@@ -3,13 +3,13 @@
 Beta version of script find PINT (Personal Instrisic Network Topology)
 
 Usage:
-  find-PINT-vertices.py [options] --func <func.dtseries.nii> --surf-L <surf.gii> --surf-R <surf.gii> --input-vertices FILE --outputcsv FILE
+  find-PINT-vertices.py [options] <func.dtseries.nii> <left-surface.gii> <right-surface.gii> <input-vertices.csv> <outputcsv>
 Arguments:
-    --func <func.dtseries.nii>  Paths to directory source image
-    --surf-L <surface.gii>      Path to template for the ROIs of network regions
-    --surf-R <surface.gii>      Surface file .surf.gii to read coordinates from
-    --input-vertices FILE       Table of template vertices from which to Start
-    --outputcsv FILE            Output csv file
+    <func.dtseries.nii>    Paths to directory source image
+    <left-surface.gii>     Path to template for the ROIs of network regions
+    <right-surface.gii>    Surface file .surf.gii to read coordinates from
+    <input-vertices.csv>   Table of template vertices from which to Start
+    <outputcsv>            Output csv file
 
 Options:
   -v,--verbose             Verbose logging
@@ -23,7 +23,7 @@ TBA
 Written by Erin W Dickie, April 2016
 """
 from epitome.docopt import docopt
-
+import epitome as epi
 import numpy as np
 import nibabel as nib
 import os
@@ -35,11 +35,11 @@ import pandas as pd
 import nibabel.gifti.giftiio
 
 arguments     = docopt(__doc__)
-func          = arguments['--func']
-surfL         = arguments['--surf-L']
-surfR         = arguments['--surf-R']
-origcsv       = arguments['--input-vertices']
-outputfile    = arguments['--outputcsv']
+func          = arguments['<func.dtseries.nii>']
+surfL         = arguments['<left-surface.gii>']
+surfR         = arguments['<right-surface.gii>']
+origcsv       = arguments['<input-vertices.csv>']
+outputfile    = arguments['<outputcsv>']
 VERBOSE       = arguments['--verbose']
 DEBUG         = arguments['--debug']
 DRYRUN        = arguments['--dry-run']
@@ -49,7 +49,7 @@ DRYRUN        = arguments['--dry-run']
 global RADIUS_SAMPLING
 global RADIUS_SEARCH
 RADIUS_SAMPLING = 5
-RADIUS_SEARCH = 20
+RADIUS_SEARCH = 10
 tmpdir = tempfile.mkdtemp()
 
 ###
@@ -151,7 +151,7 @@ vertex_incol = 'vertex'
 iter_num = 0
 max_distance = 10
 
-while iter_num < 10 or max_distance > 1:
+while iter_num < 25 and max_distance > 1:
     vertex_outcol = 'vertex_{}'.format(iter_num)
     distance_outcol = 'dist_{}'.format(iter_num)
     df.loc[:,vertex_outcol] = -999
@@ -199,7 +199,7 @@ df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
 df  = calc_distance_column(df, 'vertex', 'ivertex',
                         'distance', 250)
 
-cols_to_export = c('hemi','NETWORK','roiidx','vertex','ivertex','distance')
+cols_to_export = ['hemi','NETWORK','roiidx','vertex','ivertex','distance']
 
 df.to_csv(outputfile, columns = cols_to_export, index = False)
 
