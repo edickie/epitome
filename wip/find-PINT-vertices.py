@@ -3,12 +3,13 @@
 Beta version of script find PINT (Personal Instrisic Network Topology)
 
 Usage:
-  find-PINT-vertices.py [options] --func <func.dtseries.nii> --surf-L <surf.gii> --surf-R <surf.gii> --input-vertices FILE
+  find-PINT-vertices.py [options] --func <func.dtseries.nii> --surf-L <surf.gii> --surf-R <surf.gii> --input-vertices FILE --outputcsv FILE
 Arguments:
     --func <func.dtseries.nii>  Paths to directory source image
     --surf-L <surface.gii>      Path to template for the ROIs of network regions
     --surf-R <surface.gii>      Surface file .surf.gii to read coordinates from
     --input-vertices FILE       Table of template vertices from which to Start
+    --outputcsv FILE            Output csv file
 
 Options:
   -v,--verbose             Verbose logging
@@ -22,6 +23,7 @@ TBA
 Written by Erin W Dickie, April 2016
 """
 from epitome.docopt import docopt
+
 import numpy as np
 import nibabel as nib
 import os
@@ -37,14 +39,17 @@ func          = arguments['--func']
 surfL         = arguments['--surf-L']
 surfR         = arguments['--surf-R']
 origcsv       = arguments['--input-vertices']
+outputfile    = arguments['--outputcsv']
 VERBOSE       = arguments['--verbose']
 DEBUG         = arguments['--debug']
 DRYRUN        = arguments['--dry-run']
 
 
 #mkdir a tmpdir for the
-global RADIUS_SAMPLING='5'
-global RADIUS_SEARCH='10'
+global RADIUS_SAMPLING
+global RADIUS_SEARCH
+RADIUS_SAMPLING = 5
+RADIUS_SEARCH = 20
 tmpdir = tempfile.mkdtemp()
 
 ###
@@ -69,8 +74,9 @@ def calc_surf_distance(surf, orig_vertex, target_vertex, radius_search, tmpdir=t
     distance = distances[target_vertex,0]
     return(distance)
 
-def calc_distance_column(df, orig_vertex_col, target_vertex_col,
-                        distance_outcol, surfL, surfR, tmpdir=tmpdir, radius_search=RADIUS_SEARCH):
+def calc_distance_column(df, orig_vertex_col, target_vertex_col,distance_outcol,
+                         radius_search = RADIUS_SEARCH,
+                         surfL = surfL, surfR = surfR):
     df.loc[:,distance_outcol] = -99.9
     for idx in df.index.tolist():
         orig_vertex = df.loc[idx, orig_vertex_col]
@@ -78,13 +84,13 @@ def calc_distance_column(df, orig_vertex_col, target_vertex_col,
         hemi = df.loc[idx,'hemi']
         if hemi == "L":
             df.loc[idx, distance_outcol] = calc_surf_distance(surfL, orig_vertex,
-                                            peakvert, radius_search, tmpdir)
+                                            target_vertex, radius_search, tmpdir)
         if hemi == "R":
             df.loc[idx, distance_outcol] = calc_surf_distance(surfR, orig_vertex,
-                                            peakvert, radius_search, tmpdir)
+                                            target_vertex, radius_search, tmpdir)
     return df
 
-def load_surfaceonly(filename, tempdir):
+def load_surfaceonly(filename, tempdir = tmpdir):
     '''
     separate a cifti file into surfaces,
     then loads and concatenates the surface data
@@ -102,7 +108,7 @@ def load_surfaceonly(filename, tempdir):
 
     return Ldata, Rdata
 
-def roi_surf_data(df, vertex_colname, surf, hemisphere, roi_radius, tmpdir):
+def roi_surf_data(df, vertex_colname, surf, hemisphere, roi_radius, tmpdir = tmpdir):
     '''
     uses wb_command -surface-geodesic-rois to build rois (3D files)
     then load and collasp that into 1D array
@@ -123,7 +129,14 @@ def roi_surf_data(df, vertex_colname, surf, hemisphere, roi_radius, tmpdir):
 
     return rois_data
 
-
+def rois_bilateral(df, vertex_colname, roi_radius, surfL = surfL, surfR = surfR):
+    '''
+    runs roi_surf_data for both surfaces and combines them to one numpy array
+    '''
+    rois_L = roi_surf_data(df, vertex_colname, surfL, 'L', roi_radius)
+    rois_R = roi_surf_data(df, vertex_colname, surfR, 'R', roi_radius)
+    rois = np.vstack((rois_L, rois_R))
+    return rois
 
 ## loading the dataframe
 df = pd.read_csv(origcsv)
@@ -137,26 +150,18 @@ func_data = np.vstack((func_dataL, func_dataR))
 vertex_incol = 'vertex'
 iter_num = 0
 max_distance = 10
-while iter_num < 100 or max_distance > 0.1:
 
+while iter_num < 10 or max_distance > 1:
     vertex_outcol = 'vertex_{}'.format(iter_num)
     distance_outcol = 'dist_{}'.format(iter_num)
     df.loc[:,vertex_outcol] = -999
     df.loc[:,distance_outcol] = -99.9
 
     ## load the sampling data
-    sampling_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L')
-    sampling_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R')
-    sampling_rois = np.vstack((sampling_rois_L, sampling_rois_R))
-    del sampling_rois_R
-    del sampling_rois_L
+    sampling_rois = rois_bilateral(df, vertex_incol, RADIUS_SAMPLING)
 
     ## load the search data
-    search_rois_L = roi_surf_data(df, vertex_incol, surfL, 'L')
-    search_rois_R = roi_surf_data(df, vertex_incol, surfR, 'R')
-    search_rois = np.vstack((search_rois_L, search_rois_R))
-    del search_rois_L
-    del search_rois_R
+    search_rois = rois_bilateral(df, vertex_incol, RADIUS_SEARCH)
 
     for idx in df.index.tolist():
         vlabel = df.loc[idx,'roiidx']
@@ -181,8 +186,7 @@ while iter_num < 100 or max_distance > 0.1:
         df.loc[idx,vertex_outcol] = peakvert
 
     ## calc the distances
-    df  = calc_distance_column(df, vertex_incol, vertex_outcol,
-                            distance_outcol, surfL, surfR)
+    df  = calc_distance_column(df, vertex_incol, vertex_outcol, distance_outcol)
 
     ## print the max distance as things continue..
     max_distance = max(df[distance_outcol])
@@ -193,10 +197,11 @@ while iter_num < 100 or max_distance > 0.1:
 ## calc a final distance column
 df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
 df  = calc_distance_column(df, 'vertex', 'ivertex',
-                        'distance', surfL, surfR)
+                        'distance', 250)
 
 cols_to_export = c('hemi','NETWORK','roiidx','vertex','ivertex','distance')
 
+df.to_csv(outputfile, columns = cols_to_export, index = False)
 
 #get rid of the tmpdir
 shutil.rmtree(tmpdir)
