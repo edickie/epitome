@@ -12,6 +12,9 @@ Arguments:
     <outputcsv>            Output csv file
 
 Options:
+  --pcorr                  Use maximize partial correlaion within network (instead of pearson).
+  --sampling-radius MM     Radius [default: 5] in mm of sampling rois
+  --search-radius MM       Radius [default: 10] in mm of
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -34,22 +37,23 @@ import subprocess
 import pandas as pd
 import nibabel.gifti.giftiio
 
+global RADIUS_SAMPLING
+global RADIUS_SEARCH
 arguments     = docopt(__doc__)
 func          = arguments['<func.dtseries.nii>']
 surfL         = arguments['<left-surface.gii>']
 surfR         = arguments['<right-surface.gii>']
 origcsv       = arguments['<input-vertices.csv>']
 outputfile    = arguments['<outputcsv>']
+pcorr         = arguments['--pcorr']
+RADIUS_SAMPLING = arguments['--sampling-radius']
+RADIUS_SEARCH = arguments['--search-radius']
 VERBOSE       = arguments['--verbose']
 DEBUG         = arguments['--debug']
 DRYRUN        = arguments['--dry-run']
 
 
 #mkdir a tmpdir for the
-global RADIUS_SAMPLING
-global RADIUS_SEARCH
-RADIUS_SAMPLING = 5
-RADIUS_SEARCH = 10
 tmpdir = tempfile.mkdtemp()
 
 ###
@@ -138,6 +142,78 @@ def rois_bilateral(df, vertex_colname, roi_radius, surfL = surfL, surfR = surfR)
     rois = np.vstack((rois_L, rois_R))
     return rois
 
+def calc_network_meants(func_data, sampling_roi_mask, network_rois):
+    '''
+    calculate the network mean timeseries from many sub rois
+    '''
+    netseeds = []
+    for netlabel in network_rois:
+        netseeds = np.hstack((netseeds,np.where(sampling_roi_mask == netlabel)[0]))
+    meants = np.mean(func_data[netseeds.astype(int), :], axis=0)
+    return meants
+
+def partial_corr(C):
+    """
+    Partial Correlation in Python (clone of Matlab's partialcorr)
+    from https://gist.github.com/fabianp/9396204419c7b638d38f
+
+    This uses the linear regression approach to compute the partial
+    correlation (might be slow for a huge number of variables). The
+    algorithm is detailed here:
+
+        http://en.wikipedia.org/wiki/Partial_correlation#Using_linear_regression
+
+    Taking X and Y two variables of interest and Z the matrix with all the variable minus {X, Y},
+    the algorithm can be summarized as
+
+        1) perform a normal linear least-squares regression with X as the target and Z as the predictor
+        2) calculate the residuals in Step #1
+        3) perform a normal linear least-squares regression with Y as the target and Z as the predictor
+        4) calculate the residuals in Step #3
+        5) calculate the correlation coefficient between the residuals from Steps #2 and #4;
+
+    The result is the partial correlation between X and Y while controlling for the effect of Z
+
+    Returns the sample linear partial correlation coefficients between pairs of variables in C, controlling
+    for the remaining variables in C.
+
+
+    Parameters
+    ----------
+    C : array-like, shape (n, p)
+        Array with the different variables. Each column of C is taken as a variable
+
+
+    Returns
+    -------
+    P : array-like, shape (p, p)
+        P[i, j] contains the partial correlation of C[:, i] and C[:, j] controlling
+        for the remaining variables in C.
+    """
+
+    C = np.asarray(C)
+    p = C.shape[1]
+    P_corr = np.zeros((p, p), dtype=np.float)
+    for i in range(p):
+        P_corr[i, i] = 1
+        for j in range(i + 1, p):
+            idx = np.ones(p, dtype=np.bool)
+            idx[i] = False
+            idx[j] = False
+            beta_i = linalg.lstsq(C[:, idx], C[:, j])[0]
+            beta_j = linalg.lstsq(C[:, idx], C[:, i])[0]
+
+            res_j = C[:, j] - C[:, idx].dot(beta_i)
+            res_i = C[:, i] - C[:, idx].dot(beta_j)
+
+            corr = stats.pearsonr(res_i, res_j)[0]
+            P_corr[i, j] = corr
+            P_corr[j, i] = corr
+
+    return P_corr
+
+
+
 ## loading the dataframe
 df = pd.read_csv(origcsv)
 df.loc[:,'roiidx'] = pd.Series(np.arange(1,len(df.index)+1), index=df.index)
@@ -163,30 +239,48 @@ while iter_num < 25 and max_distance > 1:
     ## load the search data
     search_rois = rois_bilateral(df, vertex_incol, RADIUS_SEARCH)
 
+    ## if we are doing partial corr create a matrix of the network
+    if pcorr:
+        netmeants = pd.DataFrame(np.nan,
+                                    index = range(func_data.shape[1]),
+                                    columns = df['NETWORK'].unique())
+        for network in netmeants.columns:
+            netlabels = df[df.NETWORK == network].roiidx.tolist()
+            netmeants.loc[:,network] = calc_network_meants(func_data, sampling_rois, netlabels)
+
+
     for idx in df.index.tolist():
         vlabel = df.loc[idx,'roiidx']
         network = df.loc[idx,'NETWORK']
         hemi = df.loc[idx,'hemi']
         orig_vertex = df.loc[idx, vertex_incol]
+
+        ## get the meants - excluding this roi from the network
         netlabels = list(set(df[df.NETWORK == network].roiidx.tolist()) - set([vlabel]))
-        netseeds = []
-        for netlabel in netlabels:
-            netseeds = np.hstack((netseeds,np.where(sampling_rois == netlabel)[0]))
-        meants = np.mean(func_data[netseeds.astype(int), :], axis=0)
-        idx_mask = np.where(search_rois == vlabel)[0]
+        meants = calc_network_meants(func_data, sampling_rois, netlabels)
 
         # create output array
+        idx_mask = np.where(search_rois == vlabel)[0]
         seed_corrs = np.zeros(func_data.shape[0])
 
         # loop through each time series, calculating r
         for i in np.arange(len(idx_mask)):
-            seed_corrs[idx_mask[i]] = np.corrcoef(meants, func_data[idx_mask[i], :])[0][1]
+            if pcorr:
+                o_networks = set(netmeants.columns.tolist()) - set([network])
+                mat_for_corr = np.vstack((meants,
+                                          func_data[idx_mask[i], :],
+                                          netmeants.loc[:,o_networks].transpose().as_matrix()))
+                seed_corrs[idx_mask[i]] = partial_corr(np.transpose(mat_for_corr))[0][1]
+            else:
+                seed_corrs[idx_mask[i]] = np.corrcoef(meants,
+                                                      func_data[idx_mask[i], :])[0][1]
+        ## record the vertex with the highest correlation in the mask
         peakvert = np.argmax(seed_corrs, axis=0)
         if hemi =='R': peakvert = peakvert - num_Lverts
         df.loc[idx,vertex_outcol] = peakvert
 
     ## calc the distances
-    df  = calc_distance_column(df, vertex_incol, vertex_outcol, distance_outcol)
+    df = calc_distance_column(df, vertex_incol, vertex_outcol, distance_outcol)
 
     ## print the max distance as things continue..
     max_distance = max(df[distance_outcol])
@@ -197,7 +291,7 @@ while iter_num < 25 and max_distance > 1:
 ## calc a final distance column
 df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
 df  = calc_distance_column(df, 'vertex', 'ivertex',
-                        'distance', 250)
+                        'distance', 100)
 
 cols_to_export = ['hemi','NETWORK','roiidx','vertex','ivertex','distance']
 
