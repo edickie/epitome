@@ -26,6 +26,7 @@ TBA
 Written by Erin W Dickie, April 2016
 """
 from epitome.docopt import docopt
+from scipy import stats, linalg
 import epitome as epi
 import numpy as np
 import nibabel as nib
