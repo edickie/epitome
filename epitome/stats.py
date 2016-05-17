@@ -6,6 +6,7 @@ A collection of statistical routines for MRI analysis.
 
 import os, sys
 import numpy as np
+from scipy import stats, linalg
 import sklearn as sk
 
 def partial_corr(C):
@@ -90,8 +91,6 @@ def FD(motion, head_radius):
     # sum over absolute derivative for the 6 motion parameters
     FD = np.sum(np.abs(np.diff(FD, n=1, axis=0)), axis=1)
     FD = np.insert(FD, 0, 0) # align FD with original run & DVARS
-
-    print(FD)
 
     return FD
 

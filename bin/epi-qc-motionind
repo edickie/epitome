@@ -97,7 +97,7 @@ def main():
     FD_t      = arguments['--FD-thres']
     DV_t      = arguments['--DV-thres']
 
-    if NODVARS : DVARS=False
+    DVARS=False if NODVARS else True
 
     ax_x = 0
     ax_y = 0
@@ -112,11 +112,15 @@ def main():
     # sort subjects by FD lowest to highest
     for subj in subjects:
         FD = np.array([])
-        for session in os.walk(os.path.join(path, expt, subj, mode)).next()[1]:
-            d = os.path.join(path, expt, subj, mode, session)
+        for session in glob.glob(os.path.join(path,expt,subj,mode,'SESS*')):
+            d = session
             for run in np.arange(len(glob.glob(d + '/RUN*'))) + 1:
-                f = epi.stats.FD(os.path.join(d, 'PARAMS/motion.{}.{}.1D'.format(uid, '%02d' % run)), head_r)
-                FD = np.append(FD, f)
+                FDfile = os.path.join(d, 'PARAMS/motion.{}.{}.1D'.format(uid, '%02d' % run))
+                if os.path.isfile(FDfile):
+                    f = epi.stats.FD(FDfile, head_r)
+                    FD = np.append(FD, f)
+                else:
+                    print('{} file not found...skipping'.format(FDfile))
 
             #take total FD over all runs
             dict_FD[subj] = np.sum(FD) / len(FD)
@@ -160,11 +164,14 @@ def main():
             FD = np.array([])
             if DVARS: DV = np.array([])
             breaks = np.array([0])
-            for session in os.walk(os.path.join(path, expt, subj[0], mode)).next()[1]:
-                d = os.path.join(path, expt, subj[0], mode, session)
+            for session in glob.glob(os.path.join(path,expt,subj,mode,'SESS*')):
+                d = session
                 for run in np.arange(len(glob.glob(d + '/RUN*'))) + 1:
                     # framewise displacement
-                    f = epi.stats.FD(os.path.join(d, 'PARAMS/motion.{}.{}.1D'.format(uid, '%02d' % run)), head_r)
+                    FDfile = os.path.join(d, 'PARAMS/motion.{}.{}.1D'.format(uid, '%02d' % run))
+                    if not os.path.isfile(FDfile):
+                        continue
+                    f = epi.stats.FD(FDfile, head_r)
                     FD = np.append(FD, f) #per subject
                     FD_all= np.append(FD_all, f) # across all subjects
                     run_length = len(FD)
@@ -172,6 +179,10 @@ def main():
 
                     # DVARS
                     if DVARS:
+                        DVfile = os.path.join(d, 'PARAMS/DVARS.{}.{}.1D'.format(uid, '%02d' % run))
+                        if not os.path.isfile(DVfile):
+                            print('{} not found...skipping'.format(DVfile))
+                            continue
                         f = np.genfromtxt(os.path.join(d, 'PARAMS/DVARS.{}.{}.1D'.format(uid, '%02d' % run)))
                         f = f[1:] / 10 # remove leading 0, conv. to % signal
                         DV = np.append(DV, f) # per subject
