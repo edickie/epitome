@@ -71,12 +71,15 @@ def calc_surf_distance(surf, orig_vertex, target_vertex, radius_search, tmpdir=t
     uses wb_command -surface-geodesic-distance command to measure
     distance between two vertices on the surface
     '''
-    surf_distance = os.path.join(tmpdir, "distancecalc.shape.gii")
-    docmd(['wb_command', '-surface-geodesic-distance',
-            surf, str(orig_vertex), surf_distance,
-            '-limit', str(radius_search)])
-    distances = epi.utilities.load_gii_data(surf_distance)
-    distance = distances[target_vertex,0]
+    if int(orig_vertex) == int(target_vertex):
+        distance = 0
+    else:
+        surf_distance = os.path.join(tmpdir, "distancecalc.shape.gii")
+        docmd(['wb_command', '-surface-geodesic-distance',
+                surf, str(orig_vertex), surf_distance,
+                '-limit', str(radius_search)])
+        distances = epi.utilities.load_gii_data(surf_distance)
+        distance = distances[target_vertex,0]
     return(distance)
 
 def calc_distance_column(df, orig_vertex_col, target_vertex_col,distance_outcol,
@@ -276,7 +279,7 @@ while iter_num < 25 and max_distance > 1:
                 seed_corrs[idx_mask[i]] = np.corrcoef(meants,
                                                       func_data[idx_mask[i], :])[0][1]
         ## record the vertex with the highest correlation in the mask
-        peakvert = np.argmax(seed_corrs, axis=0)
+        peakvert = np.argmax(seed_corrs, axis=0) + 1
         if hemi =='R': peakvert = peakvert - num_Lverts
         df.loc[idx,vertex_outcol] = peakvert
 
