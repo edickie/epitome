@@ -153,10 +153,10 @@ def calc_network_meants(func_data, sampling_roi_mask, network_rois):
     meants = np.mean(func_data[netseeds.astype(int), :], axis=0)
     return meants
 
-def partial_corr(C):
+def partial_corr(X,Y,Z):
     """
     Partial Correlation in Python (clone of Matlab's partialcorr)
-    from https://gist.github.com/fabianp/9396204419c7b638d38f
+    But Returns only one partial correlation value.
 
     This uses the linear regression approach to compute the partial
     correlation (might be slow for a huge number of variables). The
@@ -175,44 +175,38 @@ def partial_corr(C):
 
     The result is the partial correlation between X and Y while controlling for the effect of Z
 
-    Returns the sample linear partial correlation coefficients between pairs of variables in C, controlling
-    for the remaining variables in C.
+    Returns the sample linear partial correlation coefficient between X and Y controlling
+    for Z.
 
 
     Parameters
     ----------
-    C : array-like, shape (n, p)
-        Array with the different variables. Each column of C is taken as a variable
+    X : vector (length n)
+    Y : vector (length n)
+    Z : array-like, shape (n, p) where p are the variables to control for
 
 
     Returns
     -------
-    P : array-like, shape (p, p)
-        P[i, j] contains the partial correlation of C[:, i] and C[:, j] controlling
-        for the remaining variables in C.
+    pcorr : float - partial correlation between X and Y controlling for Z
+
+    Adapted from https://gist.github.com/fabianp/9396204419c7b638d38f
+    to return one value instead of partial correlation matrix
     """
 
-    C = np.asarray(C)
-    p = C.shape[1]
-    P_corr = np.zeros((p, p), dtype=np.float)
-    for i in range(p):
-        P_corr[i, i] = 1
-        for j in range(i + 1, p):
-            idx = np.ones(p, dtype=np.bool)
-            idx[i] = False
-            idx[j] = False
-            beta_i = linalg.lstsq(C[:, idx], C[:, j])[0]
-            beta_j = linalg.lstsq(C[:, idx], C[:, i])[0]
+    ## regress covariates on both X and Y
+    beta_x = linalg.lstsq(Z, X)[0]
+    beta_y = linalg.lstsq(Z, Y)[0]
 
-            res_j = C[:, j] - C[:, idx].dot(beta_i)
-            res_i = C[:, i] - C[:, idx].dot(beta_j)
+    ## take residuals of above regression
+    res_x = X - Z.dot(beta_x)
+    res_y = Y - Z.dot(beta_y)
 
-            corr = stats.pearsonr(res_i, res_j)[0]
-            P_corr[i, j] = corr
-            P_corr[j, i] = corr
+    ## correlate the residuals to get partial corr
+    pcorr = stats.pearsonr(res_x, res_y)[0]
 
-    return P_corr
-
+    ## return the partial correlation
+    return pcorr
 
 
 ## loading the dataframe
@@ -268,10 +262,9 @@ while iter_num < 25 and max_distance > 1:
         for i in np.arange(len(idx_mask)):
             if pcorr:
                 o_networks = set(netmeants.columns.tolist()) - set([network])
-                mat_for_corr = np.vstack((meants,
+                seed_corrs[idx_mask[i]] = partial_corr(meants,
                                           func_data[idx_mask[i], :],
-                                          netmeants.loc[:,o_networks].transpose().as_matrix()))
-                seed_corrs[idx_mask[i]] = partial_corr(np.transpose(mat_for_corr))[0][1]
+                                          netmeants.loc[:,o_networks].as_matrix())
             else:
                 seed_corrs[idx_mask[i]] = np.corrcoef(meants,
                                                       func_data[idx_mask[i], :])[0][1]
