@@ -14,7 +14,8 @@ Arguments:
 Options:
   --pcorr                  Use maximize partial correlaion within network (instead of pearson).
   --sampling-radius MM     Radius [default: 5] in mm of sampling rois
-  --search-radius MM       Radius [default: 10] in mm of
+  --search-radius MM       Radius [default: 10] in mm of search rois
+  --outputall              Output vertices from each iteration.
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -47,6 +48,7 @@ surfR         = arguments['<right-surface.gii>']
 origcsv       = arguments['<input-vertices.csv>']
 outputfile    = arguments['<outputcsv>']
 pcorr         = arguments['--pcorr']
+outputall     = arguments['--outputall']
 RADIUS_SAMPLING = arguments['--sampling-radius']
 RADIUS_SEARCH = arguments['--search-radius']
 VERBOSE       = arguments['--verbose']
@@ -259,7 +261,7 @@ while iter_num < 25 and max_distance > 1:
 
         # create output array
         idx_mask = np.where(search_rois == vlabel)[0]
-        seed_corrs = np.zeros(func_data.shape[0])
+        seed_corrs = np.zeros(func_data.shape[0]) - 1
 
         # loop through each time series, calculating r
         for i in np.arange(len(idx_mask)):
@@ -272,25 +274,28 @@ while iter_num < 25 and max_distance > 1:
                 seed_corrs[idx_mask[i]] = np.corrcoef(meants,
                                                       func_data[idx_mask[i], :])[0][1]
         ## record the vertex with the highest correlation in the mask
-        peakvert = np.argmax(seed_corrs, axis=0) + 1
+        peakvert = np.argmax(seed_corrs, axis=0) 
         if hemi =='R': peakvert = peakvert - num_Lverts
         df.loc[idx,vertex_outcol] = peakvert
 
     ## calc the distances
     df = calc_distance_column(df, vertex_incol, vertex_outcol, distance_outcol)
+    numNotDone = df.loc[df.loc[:,distance_outcol] > 0, 'roiidx'].count()
 
     ## print the max distance as things continue..
     max_distance = max(df[distance_outcol])
-    print('Iteration {} max distance: {}'.format(iter_num, max_distance))
+    print('Iteration {} \tmax distance: {}\tDistances > 0:{}'.format(iter_num, max_distance, numNotDone))
     vertex_incol = vertex_outcol
     iter_num += 1
 
 ## calc a final distance column
 df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
-df  = calc_distance_column(df, 'vertex', 'ivertex',
-                        'distance', 100)
+df  = calc_distance_column(df, 'vertex', 'ivertex', 'distance', 100)
 
-cols_to_export = ['hemi','NETWORK','roiidx','vertex','ivertex','distance']
+if outputall:
+    cols_to_export = df.columns.values
+else:
+    cols_to_export = ['hemi','NETWORK','roiidx','vertex','ivertex','distance']
 
 df.to_csv(outputfile, columns = cols_to_export, index = False)
 
