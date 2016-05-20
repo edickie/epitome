@@ -3,13 +3,13 @@
 Beta version of script find PINT (Personal Instrisic Network Topology)
 
 Usage:
-  find-PINT-vertices.py [options] <func.dtseries.nii> <left-surface.gii> <right-surface.gii> <input-vertices.csv> <outputcsv>
+  find-PINT-vertices.py [options] <func.dtseries.nii> <left-surface.gii> <right-surface.gii> <input-vertices.csv> <outputprefix>
 Arguments:
     <func.dtseries.nii>    Paths to directory source image
     <left-surface.gii>     Path to template for the ROIs of network regions
     <right-surface.gii>    Surface file .surf.gii to read coordinates from
     <input-vertices.csv>   Table of template vertices from which to Start
-    <outputcsv>            Output csv file
+    <outputprefix>         Output csv file
 
 Options:
   --pcorr                  Use maximize partial correlaion within network (instead of pearson).
@@ -46,7 +46,7 @@ func          = arguments['<func.dtseries.nii>']
 surfL         = arguments['<left-surface.gii>']
 surfR         = arguments['<right-surface.gii>']
 origcsv       = arguments['<input-vertices.csv>']
-outputfile    = arguments['<outputcsv>']
+output_prefix = arguments['<outputprefix>']
 pcorr         = arguments['--pcorr']
 outputall     = arguments['--outputall']
 RADIUS_SAMPLING = arguments['--sampling-radius']
@@ -158,6 +158,26 @@ def calc_network_meants(func_data, sampling_roi_mask, network_rois):
     meants = np.mean(func_data[netseeds.astype(int), :], axis=0)
     return meants
 
+def calc_sampling_meants(func_data, sampling_roi_mask, outputcsv_name=None):
+    '''
+    output a np.arrary of the meants for every index in the sampling_roi_mask
+    '''
+    # init output vector
+    rois = np.unique(sampling_roi_mask)[1:]
+    out_data = np.zeros((len(rois), func_data.shape[1]))
+
+    # get mean seed dataistic from each, append to output
+    for i, roi in enumerate(rois):
+        idx = np.where(sampling_roi_mask == roi)[0]
+        out_data[i,:] = np.mean(func_data[idx, :], axis=0)
+
+    ## if the outputfile argument was given, then output the file
+    if outputcsv_name:
+        np.savetxt(outputcsv_name, out_data, delimiter=",")
+
+    return(out_data)
+
+
 def partial_corr(X,Y,Z):
     """
     Partial Correlation in Python (clone of Matlab's partialcorr)
@@ -223,11 +243,11 @@ func_dataL, func_dataR = load_surfaceonly(func, tmpdir)
 num_Lverts = func_dataL.shape[0]
 func_data = np.vstack((func_dataL, func_dataR))
 
-vertex_incol = 'vertex'
+vertex_incol = 'tvertex'
 iter_num = 0
 max_distance = 10
 
-while iter_num < 25 and max_distance > 1:
+while iter_num < 30 and max_distance > 1:
     vertex_outcol = 'vertex_{}'.format(iter_num)
     distance_outcol = 'dist_{}'.format(iter_num)
     df.loc[:,vertex_outcol] = -999
@@ -274,7 +294,7 @@ while iter_num < 25 and max_distance > 1:
                 seed_corrs[idx_mask[i]] = np.corrcoef(meants,
                                                       func_data[idx_mask[i], :])[0][1]
         ## record the vertex with the highest correlation in the mask
-        peakvert = np.argmax(seed_corrs, axis=0) 
+        peakvert = np.argmax(seed_corrs, axis=0)
         if hemi =='R': peakvert = peakvert - num_Lverts
         df.loc[idx,vertex_outcol] = peakvert
 
@@ -284,20 +304,30 @@ while iter_num < 25 and max_distance > 1:
 
     ## print the max distance as things continue..
     max_distance = max(df[distance_outcol])
-    print('Iteration {} \tmax distance: {}\tDistances > 0:{}'.format(iter_num, max_distance, numNotDone))
+    print('Iteration {} \tmax distance: {}\tVertices Moved: {}'.format(iter_num, max_distance, numNotDone))
     vertex_incol = vertex_outcol
     iter_num += 1
 
 ## calc a final distance column
 df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
-df  = calc_distance_column(df, 'vertex', 'ivertex', 'distance', 100)
+df  = calc_distance_column(df, 'tvertex', 'ivertex', 'distance', 150)
 
 if outputall:
     cols_to_export = df.columns.values
 else:
-    cols_to_export = ['hemi','NETWORK','roiidx','vertex','ivertex','distance']
+    cols_to_export = ['hemi','NETWORK','roiidx','tvertex','ivertex','distance']
 
-df.to_csv(outputfile, columns = cols_to_export, index = False)
+df.to_csv('{}_summary.csv'.format(output_prefix), columns = cols_to_export, index = False)
+## load the sampling data
+
+## output the tvertex meants
+sampling_rois = rois_bilateral(df, 'tvertex', RADIUS_SAMPLING)
+calc_sampling_meants(func_data, sampling_rois,
+ outputcsv_name="{}_tvertex_meants.csv".format(output_prefix))
+## output the ivertex meants
+sampling_rois = rois_bilateral(df, 'ivertex', RADIUS_SAMPLING)
+calc_sampling_meants(func_data, sampling_rois,
+ outputcsv_name="{}_ivertex_meants.csv".format(output_prefix))
 
 #get rid of the tmpdir
 shutil.rmtree(tmpdir)
