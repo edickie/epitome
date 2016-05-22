@@ -243,11 +243,19 @@ func_dataL, func_dataR = load_surfaceonly(func, tmpdir)
 num_Lverts = func_dataL.shape[0]
 func_data = np.vstack((func_dataL, func_dataR))
 
+## cp the surfaces to the tmpdir - this will cut down on i-o is tmpdir is ramdisk
+tmp_surfL = os.path.join(tmpdir, 'surface.L.surf.gii')
+tmp_surfR = os.path.join(tmpdir, 'surface.R.surf.gii')
+docmd(['cp', surfL, tmp_surfL])
+docmd(['cp', surfR ,tmp_surfR])
+surfL = tmp_surfL
+surfR = tmp_surfR
+
 vertex_incol = 'tvertex'
 iter_num = 0
 max_distance = 10
 
-while iter_num < 30 and max_distance > 1:
+while iter_num < 50 and max_distance > 1:
     vertex_outcol = 'vertex_{}'.format(iter_num)
     distance_outcol = 'dist_{}'.format(iter_num)
     df.loc[:,vertex_outcol] = -999
