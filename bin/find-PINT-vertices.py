@@ -328,7 +328,7 @@ df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
 df  = calc_distance_column(df, 'tvertex', 'ivertex', 'distance', 150)
 
 if outputall:
-    cols_to_export = df.columns.values
+    cols_to_export = list(df.columns.values)
 else:
     cols_to_export = ['hemi','NETWORK','roiidx','tvertex','ivertex','distance']
 
