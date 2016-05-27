@@ -13,8 +13,9 @@ Arguments:
 
 Options:
   --pcorr                  Use maximize partial correlaion within network (instead of pearson).
-  --sampling-radius MM     Radius [default: 5] in mm of sampling rois
-  --search-radius MM       Radius [default: 10] in mm of search rois
+  --sampling-radius MM     Radius [default: 8] in mm of sampling rois
+  --search-radius MM       Radius [default: 8] in mm of search rois
+  --padding-radius MM      Radius [default: 16] in mm for min distance between roi centers
   --outputall              Output vertices from each iteration.
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -51,6 +52,7 @@ pcorr         = arguments['--pcorr']
 outputall     = arguments['--outputall']
 RADIUS_SAMPLING = arguments['--sampling-radius']
 RADIUS_SEARCH = arguments['--search-radius']
+RADIUS_PADDING = arguments['--padding-radius']
 VERBOSE       = arguments['--verbose']
 DEBUG         = arguments['--debug']
 DRYRUN        = arguments['--dry-run']
@@ -267,6 +269,9 @@ while iter_num < 50 and max_distance > 1:
     ## load the search data
     search_rois = rois_bilateral(df, vertex_incol, RADIUS_SEARCH)
 
+    ## load the padding-radius data
+    padding_rois = rois_bilateral(df, vertex_incol, RADIUS_PADDING)
+
     ## if we are doing partial corr create a matrix of the network
     if pcorr:
         netmeants = pd.DataFrame(np.nan,
@@ -288,7 +293,9 @@ while iter_num < 50 and max_distance > 1:
         meants = calc_network_meants(func_data, sampling_rois, netlabels)
 
         # create output array
-        idx_mask = np.where(search_rois == vlabel)[0]
+        idx_search = np.where(search_rois == vlabel)[0]
+        idx_pad = np.where(padding_rois == vlabel)[0]
+        idx_mask = np.intersect1d(idx_search, idx_pad, assume_unique=True)
         seed_corrs = np.zeros(func_data.shape[0]) - 1
 
         # loop through each time series, calculating r
@@ -325,17 +332,20 @@ if outputall:
 else:
     cols_to_export = ['hemi','NETWORK','roiidx','tvertex','ivertex','distance']
 
+if max_distance > 1:
+    cols_to_export.extend([distance_outcol, 'vertex_{}'.format(iter_num - 2)])
+
 df.to_csv('{}_summary.csv'.format(output_prefix), columns = cols_to_export, index = False)
 ## load the sampling data
 
 ## output the tvertex meants
 sampling_rois = rois_bilateral(df, 'tvertex', RADIUS_SAMPLING)
 calc_sampling_meants(func_data, sampling_rois,
- outputcsv_name="{}_tvertex_meants.csv".format(output_prefix))
+outputcsv_name="{}_tvertex_meants.csv".format(output_prefix))
 ## output the ivertex meants
 sampling_rois = rois_bilateral(df, 'ivertex', RADIUS_SAMPLING)
 calc_sampling_meants(func_data, sampling_rois,
- outputcsv_name="{}_ivertex_meants.csv".format(output_prefix))
+outputcsv_name="{}_ivertex_meants.csv".format(output_prefix))
 
 #get rid of the tmpdir
 shutil.rmtree(tmpdir)
