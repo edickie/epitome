@@ -13,9 +13,9 @@ Arguments:
 
 Options:
   --pcorr                  Use maximize partial correlaion within network (instead of pearson).
-  --sampling-radius MM     Radius [default: 8] in mm of sampling rois
+  --sampling-radius MM     Radius [default: 4] in mm of sampling rois
   --search-radius MM       Radius [default: 8] in mm of search rois
-  --padding-radius MM      Radius [default: 16] in mm for min distance between roi centers
+  --padding-radius MM      Radius [default: 12] in mm for min distance between roi centers
   --outputall              Output vertices from each iteration.
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
@@ -292,10 +292,19 @@ while iter_num < 50 and max_distance > 1:
         netlabels = list(set(df[df.NETWORK == network].roiidx.tolist()) - set([vlabel]))
         meants = calc_network_meants(func_data, sampling_rois, netlabels)
 
-        # create output array
+        # the search space is the intersection of the search radius roi and the padding rois
+        # (the padding rois creates and exclusion mask if rois are to close to one another)
         idx_search = np.where(search_rois == vlabel)[0]
         idx_pad = np.where(padding_rois == vlabel)[0]
         idx_mask = np.intersect1d(idx_search, idx_pad, assume_unique=True)
+
+        # if there padding mask and the search mask have no overlap - size is 0
+        # there is nowhere for this vertex to move to so return the orig vertex id
+        if not idx_mask.size:
+            df.loc[idx,vertex_outcol] = orig_vertex
+            continue
+
+        # create output array
         seed_corrs = np.zeros(func_data.shape[0]) - 1
 
         # loop through each time series, calculating r
@@ -331,9 +340,8 @@ if outputall:
     cols_to_export = list(df.columns.values)
 else:
     cols_to_export = ['hemi','NETWORK','roiidx','tvertex','ivertex','distance']
-
-if max_distance > 1:
-    cols_to_export.extend([distance_outcol, 'vertex_{}'.format(iter_num - 2)])
+    if max_distance > 1:
+        cols_to_export.extend([distance_outcol, 'vertex_{}'.format(iter_num - 2)])
 
 df.to_csv('{}_summary.csv'.format(output_prefix), columns = cols_to_export, index = False)
 ## load the sampling data
