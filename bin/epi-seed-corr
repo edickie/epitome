@@ -12,8 +12,10 @@ Arguments:
     <seed>          seed mask
 
 Options:
+    --roi-label INT    Specify the numeric label of the ROI you want a seedmap for
     --outputname STR   Specify the output filename
     --mask             brainmask
+    --surfaceonly      func or seed cifti files only contains surface data
     --weighted         compute weighted average timeseries from the seed map
     --use-TRs FILE     Only use the TRs listed in the file provided (TR's in file starts with 1)
     --output-ts        Also output write the from the seed to text
@@ -60,6 +62,8 @@ def main():
     func   = arguments['<func>']
     seed   = arguments['<seed>']
     mask   = arguments['--mask']
+    roi_label = arguments['--roi-label']
+    surfaceonly = arguments['--surfaceonly']
     outbase = arguments['--outputname']
     weighted = arguments['--weighted']
     TR_file = arguments['--use-TRs']
@@ -72,57 +76,42 @@ def main():
     seed_type, seedbase = determine_filetype(seed)
     if mask:
         mask_type, maskbase = determine_filetype(mask)
+    else: mask_type = None
 
     ## determine outbase if it has not been specified
     if not outbase:
         outputdir = os.path.dirname(func)
         outbase = os.path.join(outputdir,funcbase + '_' + seedbase )
 
+    ## run epi-meants to get the ts file
+    ts_tmpfile = os.path.join(tmpdir, '{}_meants.csv'.format(outbase))
+    meants_cmd = ['epi-meants']
+    if surfaceonly: meants_cmd.append('--surfaceonly')
+    if mask_type: meants_cmd.extend(['--mask', mask])
+    if weighted: meants_cmd.append('--weighted')
+    if roi_label: meants_cmd.extend(['--roi-label',roi_label])
+    meants_cmd.extend(['--outputcsv', ts_tmpfile, func, seed])
+    docmd(meants_cmd)
+
+    # load the file we just made
+    seed_ts = np.loadtxt(ts_tmpfile)
+
     ## convert to nifti
     if func_type == "cifti":
         func_fnifti = os.path.join(tempdir,'func.nii.gz')
-        seed_fnifti = os.path.join(temdir,'mask.nii.gz')
         docmd(['wb_command','-cifti-convert','-to-nifti',func, func_fnifti])
-
-        ## if mask exists - convert it, if not make one from the func.dscalar.nii
-        if not mask:
-            docmd(['fslmaths', func_fnifti, '-Tmin', '-bin',  mask_fnifti])
-        else:
-            docmd(['wb_command','-cifti-convert', mask, mask_fnifti])
-
-    # determine the filenames
-    if func[-7:] == '.nii.gz':
-        funcname = func[:-7]
-    elif func[-4:] == '.nii' or func[-4:] == '.mnc':
-        funcname = func[:-4]
-
-    if seed[-7:] == '.nii.gz':
-        seedname = seed[:-7]
-    elif seed[-4:] == '.nii' or seed[-4:] == '.mnc':
-        seedname = seed[:-4]
-
-    # set output name: remove .nii.gz or .nii ext from output name if given
-    if output == None:
-        output = 'corr_{}_{}'.format(seedname, funcname)
-    if output[-7:] == '.nii.gz':
-        output = output[:-7]
-    elif output[-4:] == '.nii' or output[-4:] == '.mnc':
-        output = output[:-4]
+        func_data, outA, header, dims = epi.utilities.loadnii(func_fnifti)
 
     # import template, store the output paramaters
-    seed = nib.load(seed)
-    outA = seed.get_affine()
+    if func_type == "nifti":
+        func_data, outA, header, dims = epi.utilities.loadnii(func)
 
-    # import data
-    seed = seed.get_data()
-    func = nib.load(func).get_data()
-    mask = nib.load(mask).get_data()
+    if mask_type == "cifti":
+        docmd(['wb_command','-cifti-convert', mask, mask_fnifti])
+        mask_data, _, _, _ = epi.utilities.loadnii(mask_fnifti)
 
-    # move to 2D
-    dims = func.shape
-    func = func.reshape((dims[0]*dims[1]*dims[2], dims[3]))
-    seed = seed.reshape((dims[0]*dims[1]*dims[2], 1))
-    mask = mask.reshape((dims[0]*dims[1]*dims[2], 1))
+    if mask_type == "nifti":
+        mask_data, _, _, _ = epi.utilities.loadnii(mask)
 
     # decide which TRs go into the correlation
     if TR_file:
@@ -132,16 +121,10 @@ def main():
         TRs = np.arange(dims[3])
 
     # get mean seed timeseries
-    idx_mask = np.where(mask >= 1)[0]
-    seed[np.where(mask >= 1)[1]] = 0
-
-    # calculate weight mask if required
-    if weighted:
-        seed_ts = np.average(func, axis=0,
-            weights=seed.reshape((dims[0]*dims[1]*dims[2])))
-    else:
-        idx_seed = np.where(seed >= 1)[0]
-        seed_ts = np.mean(func[idx_seed, :], axis=0)
+    if mask:
+        idx_mask = np.where(mask >= 1)[0]
+    else idx_mask:
+        idx_mask = np.arange(dims[0]*dims[1]*dims[2])
 
     # create output array
     out = np.zeros([dims[0]*dims[1]*dims[2], 1])
@@ -154,12 +137,26 @@ def main():
     out = out.reshape([dims[0], dims[1], dims[2], 1])
     out = nib.nifti1.Nifti1Image(out, outA)
 
+    # write out nifti
+    if func_type == "nifti":
+        out.to_filename('{}.nii.gz'.format(output))
+
+    if func_type == "cifti":
+        out.to_filename(os.path.join(tempdir,'out.nii.gz'))
+        docmd(['wb_command', '-cifti-reduce', func,
+                'MIN', os.path.join(tmpdir, 'template.dscalar.nii')])
+        ## convert back
+        docmd(['wb_command','-cifti-convert','-from-nifti',
+            os.path.join(tempdir,'out.nii.gz'),
+            os.path.join(tmpdir, 'template.dscalar.nii'),
+            '{}.dscalar.nii'.format(output)])
+
     # write out the ts if asked
     if output_ts:
-        np.savetxt('{}_ts.txt'.format(output), seed_ts)
+        docmd(['cp', tm_tmpfile, '{}_ts.txt'.format(output)])
 
-    # write out nifti
-    out.to_filename('{}.nii.gz'.format(output))
+    ## remove the tempdirectory
+    shutil.rmtree(tempdir)
 
 if __name__ == '__main__':
     main()

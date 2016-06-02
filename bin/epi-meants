@@ -12,10 +12,13 @@ Arguments:
     <seed>          seed mask
 
 Options:
-    --mask               brainmask (file format should match seed)
+    --mask FILE          brainmask (file format should match seed)
     --outputcsv PATH     Specify the output filename
+    --roi-label INT      Specify the numeric label of the ROI you want a seedmap for
+    --weighted           Compute weighted average timeseries from the seed map
     --outputlabels PATH  Specity a file to print the ROI row ids to.
     --surfaceonly        func or seed only contains surface data
+    --hemi HEMI          If the seed is a gifti file, specify the hemisphere (R or L) here
     --debug              Debug logging
     -n,--dry-run         Dry run
     -h, --help           Prints this message
@@ -69,10 +72,10 @@ def image_basename_noext(filename):
     basename = basename.replace(".nii","").replace(".gz","")
     return basename
 
-def load_surfaceonly(filename, tempdir):
+def load_surfaces(filename, tempdir):
     '''
     separate a cifti file into surfaces,
-    then loads and concatenates the surface data
+    then loads the surface data
     '''
     ## separate the cifti file into left and right surfaces
     L_data_surf=os.path.join(tempdir, 'Ldata.func.gii')
@@ -84,6 +87,15 @@ def load_surfaceonly(filename, tempdir):
     ## load both surfaces and concatenate them together
     Ldata = epi.utilities.load_gii_data(L_data_surf)
     Rdata = epi.utilities.load_gii_data(R_data_surf)
+
+    return Ldata, Rdata
+
+def load_surfaceonly(filename, tempdir):
+    '''
+    separate a cifti file into surfaces,
+    then loads and concatenates the surface data
+    '''
+    Ldata, Rdata = load_surfaces(filename, tempdir)
     data = np.vstack((Ldata, Rdata))
 
     ## return the 2D concatenated surface data
@@ -97,12 +109,13 @@ def main():
     func = arguments['<func>']
     seed = arguments['<seed>']
     mask = arguments['--mask']
+    roi_label = arguments['--roi-label']
     outputcsv = arguments['--outputcsv']
     outputlabels = arguments['--outputlabels']
     surfaceonly = arguments['--surfaceonly']
+    hemi = arguments['--hemi']
     DEBUG = arguments['--debug']
     DRYRUN = arguments['--dry-run']
-
 
     ## make the tempdir
     tempdir = tempfile.mkdtemp()
@@ -140,33 +153,65 @@ def main():
         seed = load_surfaceonly(seed, tempdir)
         if mask:
             mask = load_surfaceonly(mask, tempdir)
+
     else:
 
         ## load the functional data according to filetype
         if 'dtseries.nii' in func or 'dscalar.nii' in func:
+            func_type = "cifti"
             data, _, _, _ = epi.utilities.loadcifti(func)
         elif '.shape.gii' in func or 'func.gii' in func:
+            func_type = "gifti"
             data = epi.utilities.load_gii_data(func)
         else:
+            func_type = "nifti"
             data, _, _, _ = epi.utilities.loadnii(data)
 
         ## load the seed data according to filetype
         if 'dtseries.nii' in seed or 'dscalar.nii' in seed:
+            seed_type = "cifti"
             seed, _, _, _ = epi.utilities.loadcifti(seed)
         elif '.shape.gii' in seed or 'func.gii' in seed:
+            seed_type = "gifti"
             seed = epi.utilities.load_gii_data(seed)
         else:
+            seed_type = "nifti"
             seed, _, _, _ = epi.utilities.loadnii(seed)
 
         ## loads the mask data if provided
         if mask:
             ## load the mask data according to filetype
             if 'dtseries.nii' in mask or 'dscalar.nii' in mask:
-                mask, _, _, _ = epi.utilities.loadcifti(mask)
+                mask_data, _, _, _ = epi.utilities.loadcifti(mask)
+                mask_type = "cifti"
             elif '.shape.gii' in mask or 'func.gii' in mask:
-                mask = epi.utilities.load_gii_data(mask)
+                mask_data = epi.utilities.load_gii_data(mask)
+                mask_type = "gifit"
+            elif:
+                mask_data, _, _, _ = epi.utilities.loadnii(mask)
+                mask_type = "nifti"
             else:
-                mask, _, _, _ = epi.utilities.loadnii(mask)
+                mask_type = None
+
+    if seed_type == "gifti" and func_type == "cifti":
+        '''
+        if the seed roi is in gifti and the mask is nifti than
+        we need to separate out the func
+        '''
+        Lfunc , Rfunc = load_surfaces(func)
+        if hemi == 'L':
+            data = Lfunc
+        elif hemi == 'R':
+            data = Rfunc
+        else:
+         sys.exit('ERROR: hemisphere for the gifti seed file needs to be specified with "L" or "R"')
+        ## also need to apply this change to the mask if it matters
+        if mask_type == "cifti":
+             Lmask , Rmask = load_surfaces(mask)
+             if hemi == 'L':
+                 mask_data = Lmask
+             elif hemi == 'R':
+                 mask_data = Rmask
 
     ## check that dim 0 of both seed and func
     if data.shape[0] != seed.shape[0]:
@@ -178,23 +223,26 @@ def main():
     if mask:
         # attempt to mask out non-brain regions in ROIs
         n_seeds = len(np.unique(seed))
-        seed = seed * mask
+        if seed.shape[0] != mask_data.shape[0];
+            sys.exit('ERROR: at the mask and seed images have difference number of voxels')
+        seed = seed * mask_data
         if len(np.unique(seed)) != n_seeds:
             sys.exit('ERROR: At least 1 ROI completely outside mask for {}.'.format(output))
 
-    # init output vector
-    rois = np.unique(seed)[1:]
-    out_data = np.zeros((len(rois), data.shape[1]))
+    if weighted:
+        out_data = np.average(func, axis=0, weights=seed)
+    else:
+        # init output vector
+        if roi_label:
+            rois = roi_label
+        else:
+            rois = np.unique(seed)[1:]
+        out_data = np.zeros((len(rois), data.shape[1]))
 
-    # get mean seed dataistic from each, append to output
-    for i, roi in enumerate(rois):
-        idx = np.where(seed == roi)[0]
-        out_data[i,:] = np.mean(data[idx, :], axis=0)
-
-    # if pcorr:
-    #     out_data_corr = epi.stats.pcorr(out_data)
-    # else:
-    #     out_data_corr = np.corrcoef(out_data)
+        # get mean seed dataistic from each, append to output
+        for i, roi in enumerate(rois):
+            idx = np.where(seed == roi)[0]
+            out_data[i,:] = np.mean(data[idx, :], axis=0)
 
     # write out csv
     np.savetxt(outputcsv, out_data, delimiter=",")
