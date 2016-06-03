@@ -14,22 +14,36 @@ Arguments:
 Options:
     --roi-label INT    Specify the numeric label of the ROI you want a seedmap for
     --outputname STR   Specify the output filename
+    --hemi HEMI        If the seed is a gifti file, specify the hemisphere (R or L) here
     --mask             brainmask
     --surfaceonly      func or seed cifti files only contains surface data
     --weighted         compute weighted average timeseries from the seed map
     --use-TRs FILE     Only use the TRs listed in the file provided (TR's in file starts with 1)
     --output-ts        Also output write the from the seed to text
+    --debug              Debug logging
+    -n,--dry-run         Dry run
+    -h, --help           Prints this message
 
 DETAILS:
     At the moment, the seed mask only works with a single seed (all nonzero
     voxels will be pooled.) This outputs a single image with the r-values.
 """
-
+import os
 import sys
+import subprocess
 import numpy as np
 import scipy as sp
 import nibabel as nib
+import tempfile
+import shutil
+import epitome as epi
 from epitome.docopt import docopt
+
+### Erin's little function for running things in the shell
+def docmd(cmdlist):
+    "sends a command (inputed as a list) to the shell"
+    if DEBUG: print ' '.join(cmdlist)
+    if not DRYRUN: subprocess.call(cmdlist)
 
 def determine_filetype(filename):
     '''
@@ -42,7 +56,7 @@ def determine_filetype(filename):
         if MRbase.endswith("dtseries.nii"):
             MR_type = "cifti"
             MRbase = MRbase.replace(".dtseries.nii","")
-        elif: MRbase.endswith(".dscalar.nii"):
+        elif MRbase.endswith(".dscalar.nii"):
             MR_type = "cifti"
             MRbase = MRbase.replace(".dscalar.nii","")
         else:
@@ -58,6 +72,9 @@ def determine_filetype(filename):
     return MR_type, MRbase
 
 def main():
+    global DEBUG
+    global DRYRUN
+
     arguments = docopt(__doc__)
     func   = arguments['<func>']
     seed   = arguments['<seed>']
@@ -68,6 +85,9 @@ def main():
     weighted = arguments['--weighted']
     TR_file = arguments['--use-TRs']
     output_ts = arguments['--output-ts']
+    hemi = arguments['--hemi']
+    DEBUG = arguments['--debug']
+    DRYRUN = arguments['--dry-run']
 
     ## make the tempdir
     tempdir = tempfile.mkdtemp()
@@ -84,17 +104,18 @@ def main():
         outbase = os.path.join(outputdir,funcbase + '_' + seedbase )
 
     ## run epi-meants to get the ts file
-    ts_tmpfile = os.path.join(tmpdir, '{}_meants.csv'.format(outbase))
+    ts_tmpfile = os.path.join(tempdir, '{}_meants.csv'.format(outbase))
     meants_cmd = ['epi-meants']
     if surfaceonly: meants_cmd.append('--surfaceonly')
     if mask_type: meants_cmd.extend(['--mask', mask])
     if weighted: meants_cmd.append('--weighted')
     if roi_label: meants_cmd.extend(['--roi-label',roi_label])
+    if hemi: meants_cmd.extend(['--hemi',hemi])
     meants_cmd.extend(['--outputcsv', ts_tmpfile, func, seed])
     docmd(meants_cmd)
 
     # load the file we just made
-    seed_ts = np.loadtxt(ts_tmpfile)
+    seed_ts = np.loadtxt(ts_tmpfile, delimiter=',')
 
     ## convert to nifti
     if func_type == "cifti":
@@ -123,7 +144,7 @@ def main():
     # get mean seed timeseries
     if mask:
         idx_mask = np.where(mask >= 1)[0]
-    else idx_mask:
+    else:
         idx_mask = np.arange(dims[0]*dims[1]*dims[2])
 
     # create output array
@@ -131,7 +152,7 @@ def main():
 
     # look through each time series, calculating r
     for i in np.arange(len(idx_mask)):
-        out[idx_mask[i]] = np.corrcoef(seed_ts[TRs], func[idx_mask[i], TRs])[0][1]
+        out[idx_mask[i]] = np.corrcoef(seed_ts[TRs], func_data[idx_mask[i], TRs])[0][1]
 
     # create the 3D volume and export
     out = out.reshape([dims[0], dims[1], dims[2], 1])
@@ -139,21 +160,21 @@ def main():
 
     # write out nifti
     if func_type == "nifti":
-        out.to_filename('{}.nii.gz'.format(output))
+        out.to_filename('{}.nii.gz'.format(outbase))
 
     if func_type == "cifti":
         out.to_filename(os.path.join(tempdir,'out.nii.gz'))
-        docmd(['wb_command', '-cifti-reduce', func,
-                'MIN', os.path.join(tmpdir, 'template.dscalar.nii')])
+        docmd(['wb_command', '-cifti-reduce', func, 'MIN', os.path.join(tempdir, 'template.dscalar.nii')])
+
         ## convert back
         docmd(['wb_command','-cifti-convert','-from-nifti',
             os.path.join(tempdir,'out.nii.gz'),
-            os.path.join(tmpdir, 'template.dscalar.nii'),
-            '{}.dscalar.nii'.format(output)])
+            os.path.join(tempdir, 'template.dscalar.nii'),
+            '{}.dscalar.nii'.format(outbase)])
 
     # write out the ts if asked
     if output_ts:
-        docmd(['cp', tm_tmpfile, '{}_ts.txt'.format(output)])
+        docmd(['cp', tm_tmpfile, '{}_ts.txt'.format(outbase)])
 
     ## remove the tempdirectory
     shutil.rmtree(tempdir)
