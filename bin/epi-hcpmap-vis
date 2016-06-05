@@ -4,12 +4,13 @@ Makes temporary seed corr maps using 3 rois of interest
 then makes pretty picture of these maps.
 
 Usage:
-    epi-hcpmap-vis snaps [options] <map.dscalar.nii> <subject>
-    epi-hcpmap-vis index [options]
+    epi-hcpmap-vis snaps [options] <map.dscalar.nii> <subject> <map-name>
+    epi-hcpmap-vis index [options] <map-name>
 
 Arguments:
     <map.dscalar.nii>        A dscalar map to make pics of
     <subject>                Subject ID for HCP surfaces
+    <map-name>               Name of dscalar map as it will appear in qc page filenames
 
 Options:
   --qcdir PATH             Full path to location of QC directory
@@ -70,6 +71,7 @@ snaps_only      = arguments['snaps']
 index_only      = arguments['index']
 subject         = arguments['<subject>']
 qcdir           = arguments['--qcdir']
+mapname         = arguments['<map-name>']
 seedcorr_dscalar = arguments['<map.dscalar.nii>']
 hcp_data_dir     = arguments['--hcp-data-dir']
 seedmap          = arguments['--roi-overlay']
@@ -141,7 +143,7 @@ def write_htmlheader(htmlhandle):
                 '   margin-right: auto }\n'
                 '</style></head>\n')
 
-def write_index(qcdir, subjects, viewname):
+def write_index(qcdir, subjects, viewname, mapname):
     '''
     Writes html file with all subjects for one pic shown together
     '''
@@ -157,7 +159,7 @@ def write_index(qcdir, subjects, viewname):
 
     # add the pic and a link to the subjects' page
     for subject in subjects:
-        subjectpage = os.path.join(qcdir,subject,'qc.html')
+        subjectpage = os.path.join(qcdir,subject,mapname,'qc.html')
         pic = os.path.join(qcdir,subject,'{}.png'.format(pic_name))
         picrelpath = os.path.relpath(pic,os.path.dirname(htmlindex.name))
         subrelpath = os.path.relpath(subjectpage,os.path.dirname(htmlindex.name))
@@ -194,8 +196,8 @@ if not qcdir:
 ## make pics and qcpage for each subject
 if not index_only or snaps_only:
 
-    bseedcorr = os.path.basename(seedcorr_dscalar).replace('.dscalar.nii','')
-    qc_subdir = os.path.join(qcdir,'{}_{}'.format(subject,bseedcorr))
+    bseedcorr = mapname
+    qc_subdir = os.path.join(qcdir, subject, mapname)
 
 
     if not os.path.exists(qc_subdir):
