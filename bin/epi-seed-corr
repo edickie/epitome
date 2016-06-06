@@ -145,7 +145,7 @@ def main():
     if mask:
         idx_mask = np.where(mask >= 1)[0]
     else:
-        idx_mask = np.arange(dims[0]*dims[1]*dims[2])
+        idx_mask = np.arange(func_data.shape[0])
 
     # create output array
     out = np.zeros([dims[0]*dims[1]*dims[2], 1])
@@ -174,7 +174,7 @@ def main():
 
     # write out the ts if asked
     if output_ts:
-        docmd(['cp', tm_tmpfile, '{}_ts.txt'.format(outbase)])
+        docmd(['cp', ts_tmpfile, '{}_ts.txt'.format(outbase)])
 
     ## remove the tempdirectory
     shutil.rmtree(tempdir)
