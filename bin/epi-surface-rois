@@ -3,12 +3,7 @@
 Runs wb_command -surface-geodesic-rois to
 
 Usage:
-    epi-surface-rois [options]
-        <inputcsv>
-        <radius>
-        <L.surf.gii>
-        <R.surf.gii>
-        <output.dscalar.nii>
+    epi-surface-rois [options] <inputcsv> <radius> <L.surf.gii> <R.surf.gii> <output.dscalar.nii>
 
 Arguments:
     <inputcsv>            csv to read vertex list and hemisphere (and optional labels) from
@@ -92,34 +87,36 @@ def main():
     vertex_col = arguments['--vertex-col']
     hemi_col = arguments['--hemi-col']
     labels_col = arguments['--labels-col']
-    run_gaussian = arguments['--gaussian']
+    gaussian = arguments['--gaussian']
     overlap_logic = arguments['--overlap-logic']
-    outputcsv = arguments['--outputcsv']
     DEBUG = arguments['--debug']
     DRYRUN = arguments['--dry-run']
 
+    if DEBUG: print(arguments)
     ## read in the inputcsv
     df = pd.read_csv(inputcsv)
+
+    ## check that vertex-col and hemi-col exist
+
 
     for hemisphere in ['L','R']:
 
         surf = surfL if hemisphere == 'L' else surfR
 
         ## from the temp text build - func masks and target masks
-        rois_2D = os.path.join(tmpdir,'rois_2D.func.gii')
-        rois_1D = os.path.join(tmpdir, 'rois_{}_result.shape.gii'.format(hemisphere))
+        rois_2D = os.path.join(tmpdir,'rois_{}_2D.func.gii'.format(hemisphere))
+        rois_1D = os.path.join(tmpdir, 'rois_{}_1D.shape.gii'.format(hemisphere))
 
         ## right the L and R hemisphere vertices from the table out to temptxt
         vertex_list = os.path.join(tmpdir, 'vertex_list.txt')
-        vertices = df.loc.[df[hemi_col] == hemisphere, vertex_col]
+        vertices = df.loc[df[hemi_col] == hemisphere, vertex_col]
+        if DEBUG: print('{} vertices are: {}'.format(hemisphere, vertices))
         if len(vertices) > 0:
             vertices.to_csv(vertex_list,sep='\n',index=False)
 
             if gaussian:
                 docmd(['wb_command', '-surface-geodesic-rois', surf,
                        str(radius), vertex_list, rois_2D, '-gaussian', str(radius)])
-                docmd(['wb_command', '-metric-reduce',
-                      rois_2D, 'SUM', rois_1D])
             else:
                 docmd(['wb_command', '-surface-geodesic-rois', surf,
                     str(radius),  vertex_list, rois_2D,
@@ -133,6 +130,9 @@ def main():
                     docmd(['wb_command', '-metric-math', '((x*{}) + y)'.format(label), rois_1D,
                            '-var', 'x', rois_2D, '-column', '{}'.format(i + 1),
                           '-var', 'y', rois_1D])
+            else:
+                docmd(['wb_command', '-metric-reduce',
+                      rois_2D, 'SUM', rois_1D])
 
         else:
             pd.Series([1]).to_csv(vertex_list,sep='\n',index=False)
@@ -143,8 +143,8 @@ def main():
 
     # combine result surfaces into a cifti file
     docmd(['wb_command', '-cifti-create-dense-scalar', output_dscalar,
-           '-left-metric', os.path.join(tmpdir,'rois_L_result.shape.gii'),
-           '-right-metric', os.path.join(tmpdir,'rois_R_result.shape.gii')])
+           '-left-metric', os.path.join(tmpdir,'rois_L_1D.shape.gii'),
+           '-right-metric', os.path.join(tmpdir,'rois_R_1D.shape.gii')])
 
     ## remove the tempdirectory
     shutil.rmtree(tmpdir)
