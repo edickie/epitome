@@ -28,7 +28,8 @@ This makes pretty pictures of your hcp views using connectome workbenches "show 
 It pastes the pretty pictures together into some .html QC pages
 
 """
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 import epitome as epi
 import os
 import subprocess
@@ -47,6 +48,7 @@ index_only      = arguments['index']
 subject         = arguments['<subject>']
 qcdir           = arguments['--qcdir']
 func            = arguments['<func.dtseries.nii>']
+summarycsv      = arguments['<PINT_summary.csv>']
 hcp_data_dir     = arguments['--hcp-data-dir']
 seedcorr_palette = arguments['--colour-palette']
 subjects_filter = arguments['--subjects-filter']
@@ -55,6 +57,7 @@ VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
 if DEBUG: print arguments
+sns.set(context="paper", font="monospace")
 ## define the location of the template scenefile
 template_dir = os.path.join(epi.config.find_epitome(),'assets','hcp_qc')
 ## define the settings for the qcpages
@@ -81,13 +84,22 @@ QCmodes = {
     }
 }
 
-seed_vertices = [ {'Name':'L-precuneus', "vertex" : 13363, 'hemi': 'L'},
-                  {'Name':'L-superior-parietal', "vertex" : 14785, 'hemi': 'L'},
-                  {'Name':'L-anterior-insula', "vertex" : 10939, 'hemi': 'L'},
-                  {'Name':'R-mpfc', "vertex" : 28901, 'hemi': 'R'}]
+
+PINTnets = [{ 'NETWORK': 2, 'roiidx': 1},
+                { 'NETWORK': 3, 'roiidx': 16},
+                { 'NETWORK': 4, 'roiidx': 28},
+                { 'NETWORK': 5, 'roiidx': 41},
+                { 'NETWORK': 6, 'roiidx': 49},
+                { 'NETWORK': 7, 'roiidx': 74}]
+
+# could also be NETWORK4 idx 33
+# seed_vertices = [ {'Name':'L-precuneus', "vertex" : 13363, 'hemi': 'L'},
+#                   {'Name':'L-superior-parietal', "vertex" : 14785, 'hemi': 'L'},
+#                   {'Name':'L-anterior-insula', "vertex" : 10939, 'hemi': 'L'},
+#                   {'Name':'R-mpfc', "vertex" : 28901, 'hemi': 'R'}]
 
 ## set radius of geodesic ROIS
-SEED_RADIUS = 8
+SEED_RADIUS = 4
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -109,6 +121,23 @@ def png_SplitHorizontal(input_png,output_png,tmpdir):
         os.path.join(tmpdir,'top.png'),\
         os.path.join(tmpdir,'bottom.png'),\
         os.path.join(output_png)])
+
+def make_heatmap(summary_df, meants, output_png):
+
+    corrmat = meants.corr()
+    # Set up the matplotlib figure
+    f, ax = plt.subplots(figsize=(10, 8))
+
+    # Draw the heatmap using seaborn
+    sns.heatmap(corrmat, vmax=.9, square=True)
+
+    # Use matplotlib directly to emphasize known networks
+    for i in summary_df.index:
+        if i and summary_df.loc[i,'NETWORK'] != summary_df.loc[i-1,'NETWORK']:
+            ax.axhline(len(summary_df) - i, c="w",linewidth=3.0 )
+            ax.axvline(i, c="w",linewidth=3.0)
+    f.tight_layout()
+    f.savefig(output_png)
 
 def write_htmlheader(htmlhandle):
     ''' writes some style elements into the html header '''
@@ -172,8 +201,8 @@ if not qcdir:
     qcdir = os.path.join(hcp_data_dir,'qc_{}'.format('PINT_vis'))
 
 ## get the subject list
-if subid:
-    subjects = [subid]
+if subject:
+    subjects = [subject]
 else:
     subjects = epi.utilities.get_subj(hcp_data_dir)
     if subjects_filter:
@@ -189,8 +218,7 @@ else:
 if not index_only or snaps_only:
     for subject in subjects:
 
-        qc_subdir = os.path.join(qcdir,'{}_{}_sm{}'.format(subject,name_of_fmri,fwhm))
-
+        qc_subdir = os.path.join(qcdir, subject)
 
         if not os.path.exists(qc_subdir):
             docmd(['mkdir','-p', qc_subdir])
@@ -198,11 +226,6 @@ if not index_only or snaps_only:
             ## make a tempdir for this subject
             tmpdir = os.path.join(tmpdirbase,subject)
             docmd(['mkdir','-p', tmpdir])
-
-            ## define the functional file for seed correlation
-            func = os.path.join(hcp_data_dir, subject,'MNINonLinear','Results',
-                    name_of_fmri, '{}_Atlas_s{}.dtseries.nii'.format(name_of_fmri,fwhm))
-
 
             if not os.path.isfile(func):
                 print("{} not found...skipping".format(func))
@@ -216,126 +239,143 @@ if not index_only or snaps_only:
             ## mean the fuctional cifti image to make cifti template for the output
             docmd(['wb_command', '-cifti-reduce', func, 'MIN', os.path.join(tmpdir, 'template.dscalar.nii')])
 
-            for seednum in range(len(seed_vertices)):
+            # Load the datset of correlations between cortical brain networks
+            summary_df = pd.read_csv(summarycsv)
+            tmeants = pd.read_csv(summarycsv.replace('_summary', '_tvertex_meants'), header=None).transpose()
+            imeants = pd.read_csv(summarycsv.replace('_summary', '_ivertex_meants'), header=None).transpose()
+
+            make_heatmap(summary_df, tmeants, os.path.join(qc_subdir, 'tvertex_corrmat.png'))
+            make_heatmap(summary_df, imeants, os.path.join(qc_subdir, 'ivertex_corrmat.png'))
+
+            for pint_dict in PINTnets:
                 '''
                 for each seed vertex make and roi and generate a seed map
                 '''
                 ## get info from the seed_dict
-                seed_dict = seed_vertices[seednum]
-                seed_txt = os.path.join(tmpdir,'seed{}vertex.txt'.format(seednum))
-                subject_surf = os.path.join(hcp_data_dir, subject, 'MNINonLinear','fsaverage_LR32k',
-                    '{}.{}.midthickness.32k_fs_LR.surf.gii'.format(subject, seed_dict['hemi']))
-                seed_roi_gii = os.path.join(tmpdir,'roi{}.{}.shape.gii'.format(seednum,seed_dict['hemi']))
-                seed_meants_txt = os.path.join(tmpdir,'roi{}.meants.txt'.format(seednum))
-                seedcorr_dscalar = os.path.join(tmpdir,'seedcorr{}.dscalar.nii'.format(seednum))
+                roiidx = pint_dict['roiidx']
+                network = pint_dict['NETWORK']
 
-                ## write the vertex value to a tmp txt file
-                with open(seed_txt, 'w') as f:
-                    f.write(str(seed_dict['vertex']))
-                ## feed that txt file to wb_command surface-geodesic-rois
-                docmd(['wb_command', '-surface-geodesic-rois', subject_surf,
-                        str(SEED_RADIUS), seed_txt, seed_roi_gii])
-                ## use wb_command -cifti-roi-average to get the mean timeseries
-                if seed_dict['hemi'] == 'L':
-                    docmd(['wb_command', '-cifti-roi-average', func, seed_meants_txt,
-                        '-left-roi', seed_roi_gii])
-                if seed_dict['hemi'] == 'R':
-                    docmd(['wb_command', '-cifti-roi-average', func, seed_meants_txt,
-                        '-right-roi', seed_roi_gii])
-                ## change the default color palette so that it shows up grey in our picks
-                docmd(['wb_command', '-metric-palette', seed_roi_gii,
-                     'MODE_AUTO_SCALE','-palette-name', 'power_surf'])
+                ## make a dscalar of the network map
+                networkdf = summary_df.loc[summary_df.loc[:,'NETWORK'] == network,:]
+                networkdf.to_csv(os.path.join(tmpdir,'networkdf.csv'),
+                                columns = ['hemi', 'ivertex','tvertex'],
+                                index = False)
 
-                ## read the mean timeseries into numpy
-                meants = np.loadtxt(seed_meants_txt)
-                ## correlated the mean timeseries with the func data
-                out = np.zeros([dims[0]*dims[1]*dims[2], 1])
-                for i in np.arange(f_data.shape[0]):
-                    out[i] = np.corrcoef(meants, f_data[i, :])[0][1]
-                ## reshape data and write it out to a fake nifti file
-                out = out.reshape([dims[0], dims[1], dims[2], 1])
-                out = nib.nifti1.Nifti1Image(out, affine)
-                out.to_filename(os.path.join(tmpdir,'seedcorr{}.nii.gz'.format(seednum)))
-                ## convert back
-                docmd(['wb_command','-cifti-convert','-from-nifti',
-                    os.path.join(tmpdir,'seedcorr{}.nii.gz'.format(seednum)),
-                    os.path.join(tmpdir, 'template.dscalar.nii'),
-                    seedcorr_dscalar])
 
-                if seedcorr_palette:
-                    docmd(['wb_command', '-cifti-palette', seedcorr_dscalar,
-                        'MODE_AUTO_SCALE', seedcorr_dscalar,
-                        '-palette-name', seedcorr_palette])
+                for vert_type in ['ivertex','tvertex']:
 
-                ## copy out template .scene file and find and replace the subid and hcppath
-                hcp_data_realpath = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(subject_surf)))))
-                scenefile = os.path.join(hcp_data_dir,'scene','seedcorr_{}_{}.scene'.format(subject, seednum))
-                scenestream = open(scenefile,'w')
-                scene_txt = template_txt.replace('HCP_DATA_PATH', hcp_data_realpath)
-                scene_txt = scene_txt.replace('HCP_DATA_RELPATH', os.path.relpath(hcp_data_realpath,os.path.dirname(scenefile)))
-                scene_txt = scene_txt.replace('SUBJID',subject)
-                scene_txt = scene_txt.replace('SEEDMASKDIR', os.path.dirname(seed_roi_gii))
-                scene_txt = scene_txt.replace('SEEDMASKRELDIR', os.path.relpath(os.path.dirname(seed_roi_gii),os.path.dirname(scenefile)))
-                scene_txt = scene_txt.replace('SEEDMASKGII', os.path.basename(seed_roi_gii))
-                scene_txt = scene_txt.replace('SEEDCORRDIR', os.path.dirname(seedcorr_dscalar))
-                scene_txt = scene_txt.replace('SEEDCORRRELDIR', os.path.relpath(os.path.dirname(seedcorr_dscalar),os.path.dirname(scenefile)))
-                scene_txt = scene_txt.replace('SEEDCORRCIFTI', os.path.basename(seedcorr_dscalar))
-                scenestream.write(scene_txt)
-                scenestream.close()
+                    rois_dscalar = os.path.join(tmpdir,'rois{}{}.dscalar.nii'.format(
+                                                            vert_type, network))
 
-                ## write the header for the subjects qc page
-                qchtml = os.path.join(qc_subdir, 'qc_{}.html'.format(seed_dict['Name']))
-                qchtml = open(qchtml,'w')
-                qchtml.write('<!DOCTYPE html>\n<HTML><TITLE> qc {} {} seed correlation</TITLE>\n'.format(subject,seed_dict['Name']))
-                write_htmlheader(qchtml)
-                qchtml.write('<body>\n<h1> QC {} {} seed correlation </h1>\n'.format(subject,seed_dict['Name']))
+                    ## make the overlaying ROIs
+                    docmd(['epi-surface-rois',
+                            '--vertex-col', vert_type,
+                            os.path.join(tmpdir,'networkdf.csv'),
+                            str(SEED_RADIUS),
+                            os.path.join(hcp_data_dir, subject, 'MNINonLinear','fsaverage_LR32k',
+                                '{}.L.midthickness.32k_fs_LR.surf.gii'.format(subject)),
+                            os.path.join(hcp_data_dir, subject, 'MNINonLinear','fsaverage_LR32k',
+                                '{}.R.midthickness.32k_fs_LR.surf.gii'.format(subject)),
+                            rois_dscalar])
 
-                ## for each scene, generate the pics and add to qc page
-                for scene_dict in scene_list:
-                    if scene_dict['Keep']==True:
-                        pic = os.path.join(qc_subdir,'{}_{}.png'.format(seed_dict['Name'],scene_dict['Name']))
+                    ## makes the seedcorr_dscalar
+                    if vert_type == 'ivertex':
+                        meants = imeants.iloc[:,roiidx - 1].values
+                    if vert_type == 'tvertex':
+                        meants = tmeants.iloc[:,roiidx - 1].values
+
+                    seedcorr_dscalar = os.path.join(tmpdir,'scorr{}{}.dscalar.nii'.format(
+                                                            vert_type, network))
+
+                    ## correlated the mean timeseries with the func data
+                    out = np.zeros([dims[0]*dims[1]*dims[2], 1])
+                    for i in np.arange(f_data.shape[0]):
+                        out[i] = np.corrcoef(meants, f_data[i, :])[0][1]
+                    ## reshape data and write it out to a fake nifti file
+                    out = out.reshape([dims[0], dims[1], dims[2], 1])
+                    out = nib.nifti1.Nifti1Image(out, affine)
+                    out.to_filename(os.path.join(tmpdir,'seedcorr{}.nii.gz'.format(network)))
+                    ## convert back
+                    docmd(['wb_command','-cifti-convert','-from-nifti',
+                        os.path.join(tmpdir,'seedcorr{}.nii.gz'.format(network)),
+                        os.path.join(tmpdir, 'template.dscalar.nii'),
+                        seedcorr_dscalar])
+
+                    if seedcorr_palette:
+                        docmd(['wb_command', '-cifti-palette', seedcorr_dscalar,
+                            'MODE_AUTO_SCALE', seedcorr_dscalar,
+                            '-palette-name', seedcorr_palette])
+
+
+                    ## copy out template .scene file and find and replace the subid and hcppath
+                    hcp_data_realpath = os.path.realpath(hcp_data_dir)
+                    scenefile = os.path.join(hcp_data_dir,'scene','seedcorr_{}_{}{}.scene'.format(subject, network, vert_type))
+                    scenestream = open(scenefile,'w')
+                    scene_txt = template_txt.replace('HCP_DATA_PATH', hcp_data_realpath)
+                    scene_txt = scene_txt.replace('HCP_DATA_RELPATH', os.path.relpath(hcp_data_realpath,os.path.dirname(scenefile)))
+                    scene_txt = scene_txt.replace('SUBJID',subject)
+                    scene_txt = scene_txt.replace('SEEDMASKDIR', os.path.dirname(rois_dscalar))
+                    scene_txt = scene_txt.replace('SEEDMASKRELDIR', os.path.relpath(os.path.dirname(rois_dscalar),os.path.dirname(scenefile)))
+                    scene_txt = scene_txt.replace('SEEDMASKGII', os.path.basename(rois_dscalar))
+                    scene_txt = scene_txt.replace('SEEDCORRDIR', os.path.dirname(seedcorr_dscalar))
+                    scene_txt = scene_txt.replace('SEEDCORRRELDIR', os.path.relpath(os.path.dirname(seedcorr_dscalar),os.path.dirname(scenefile)))
+                    scene_txt = scene_txt.replace('SEEDCORRCIFTI', os.path.basename(seedcorr_dscalar))
+                    scenestream.write(scene_txt)
+                    scenestream.close()
+
+                    ## write the header for the subjects qc page
+                    qchtml = os.path.join(qc_subdir, 'qc_{}{}.html'.format(vert_type, network))
+                    qchtml = open(qchtml,'w')
+                    qchtml.write('<!DOCTYPE html>\n<HTML><TITLE> {} {}{}</TITLE>\n'.format(subject,vert_type,network))
+                    write_htmlheader(qchtml)
+                    qchtml.write('<body>\n<h1> {} network {} {} seed correlation </h1>\n'.format(subject,network, vert_type))
+
+                    ## for each scene, generate the pics and add to qc page
+                    for scene_dict in scene_list:
+                        if scene_dict['Keep']==True:
+                            pic = os.path.join(qc_subdir,'{}{}_{}.png'.format(vert_type,network,scene_dict['Name']))
+                            picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
+                            qchtml.write('<a href="{}"><img src="{}"></a><br>\n'.format(picrelpath,picrelpath))
+                        else:
+                            pic = os.path.join(tmpdir,'{}{}_{}.png'.format(vert_type,network,scene_dict['Name']))
+                        if scene_dict['SplitHorizontal']==True:
+                            tmppic = os.path.join(tmpdir, "scene{}.png".format(scene_dict['Idx']))
+                            docmd(['wb_command', '-show-scene',
+                                    scenefile, str(scene_dict['Idx']),
+                                    tmppic,'600', '400'])
+                            png_SplitHorizontal(tmppic,pic,tmpdir)
+                        else:
+                            docmd(['wb_command', '-show-scene',
+                                    scenefile, str(scene_dict['Idx']),
+                                    pic,'600', '400'])
+
+                    for montage_dict in montage_list:
+                        pic = os.path.join(qc_subdir,'{}{}_{}.png'.format(vert_type,network,montage_dict['Name']))
                         picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
                         qchtml.write('<a href="{}"><img src="{}"></a><br>\n'.format(picrelpath,picrelpath))
-                    else:
-                        pic = os.path.join(tmpdir,'{}_{}.png'.format(seed_dict['Name'],scene_dict['Name']))
-                    if scene_dict['SplitHorizontal']==True:
-                        tmppic = os.path.join(tmpdir, "scene{}.png".format(scene_dict['Idx']))
-                        docmd(['wb_command', '-show-scene',
-                                scenefile, str(scene_dict['Idx']),
-                                tmppic,'600', '400'])
-                        png_SplitHorizontal(tmppic,pic,tmpdir)
-                    else:
-                        docmd(['wb_command', '-show-scene',
-                                scenefile, str(scene_dict['Idx']),
-                                pic,'600', '400'])
+                        montage_cmd=['montage', '-mode', 'concatenate', '-tile', montage_dict['Layout']]
+                        for subpic in montage_dict['Pics']:
+                            #should add something that read scenelist to find if temp
+                            montage_cmd.append(os.path.join(tmpdir,'{}{}_{}.png'.format(vert_type,network, subpic)))
+                        montage_cmd.append(pic)
+                        docmd(montage_cmd)
 
-                for montage_dict in montage_list:
-                    pic = os.path.join(qc_subdir,'{}_{}.png'.format(seed_dict['Name'],montage_dict['Name']))
-                    picrelpath = os.path.relpath(pic,os.path.dirname(qchtml.name))
-                    qchtml.write('<a href="{}"><img src="{}"></a><br>\n'.format(picrelpath,picrelpath))
-                    montage_cmd=['montage', '-mode', 'concatenate', '-tile', montage_dict['Layout']]
-                    for subpic in montage_dict['Pics']:
-                        #should add something that read scenelist to find if temp
-                        montage_cmd.append(os.path.join(tmpdir,'{}_{}.png'.format(seed_dict['Name'], subpic)))
-                    montage_cmd.append(pic)
-                    docmd(montage_cmd)
-
-                ## close the htmlpage stream
-                qchtml.close()
-                ## remove the subjects scene file
-                if not DEBUG: docmd(['rm', scenefile])
+                    ## close the htmlpage stream
+                    qchtml.close()
+                    ## remove the subjects scene file
+                    if not DEBUG: docmd(['rm', scenefile])
 
 
 ## Start the index html file
-if index_only or not snaps_only:
-    subjects = epi.utilities.get_subj(qcdir)
-    for seed_dict in seed_vertices:
-        for scene_dict in scene_list:
-            if scene_dict['MakeIndex']==True:
-                write_index(qcdir, subjects, seed_dict['Name'],scene_dict['Name'])
-        for montage_dict in montage_list:
-            if montage_dict['MakeIndex']==True:
-                write_index(qcdir, subjects, seed_dict['Name'],montage_dict['Name'])
+# if index_only or not snaps_only:
+#     subjects = epi.utilities.get_subj(qcdir)
+#     for seed_dict in seed_vertices:
+#         for scene_dict in scene_list:
+#             if scene_dict['MakeIndex']==True:
+#                 write_index(qcdir, subjects, seed_dict['Name'],scene_dict['Name'])
+#         for montage_dict in montage_list:
+#             if montage_dict['MakeIndex']==True:
+#                 write_index(qcdir, subjects, seed_dict['Name'],montage_dict['Name'])
 
 if not DEBUG: docmd(['rmdir', os.path.join(hcp_data_dir,'scene')])
 #get rid of the tmpdir
