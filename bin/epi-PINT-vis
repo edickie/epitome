@@ -17,7 +17,7 @@ Options:
   --hcp-data-dir PATH      The directory for HCP subjects (overrides HCP_DATA enviroment variable)
   --subjects-filter STR    A string that can be used to filter out subject directories
   --use-all-dirs           Turn off automatic filtering of subject ids (to remove 'bin'ect)
-  --colour-palette STR     Specify the colour palette for the seed correlation maps
+  --roi-radius MM          Specify the radius [default: 4] of the plotted rois (in mm)
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -50,7 +50,7 @@ qcdir           = arguments['--qcdir']
 func            = arguments['<func.dtseries.nii>']
 summarycsv      = arguments['<PINT_summary.csv>']
 hcp_data_dir     = arguments['--hcp-data-dir']
-seedcorr_palette = arguments['--colour-palette']
+SEED_RADIUS = arguments['--roi-radius']
 subjects_filter = arguments['--subjects-filter']
 use_all_dirs    = arguments['--use-all-dirs']
 VERBOSE         = arguments['--verbose']
@@ -85,12 +85,12 @@ QCmodes = {
 }
 
 
-PINTnets = [{ 'NETWORK': 2, 'roiidx': 5},
-                { 'NETWORK': 3, 'roiidx': 11},
-                { 'NETWORK': 4, 'roiidx': 27},
-                { 'NETWORK': 5, 'roiidx': 41},
-                { 'NETWORK': 6, 'roiidx': 50},
-                { 'NETWORK': 7, 'roiidx': 65}]
+PINTnets = [{ 'NETWORK': 2, 'roiidx': 5, 'best_view': "CombinedView"},
+                { 'NETWORK': 3, 'roiidx': 11, 'best_view': "CombinedView"},
+                { 'NETWORK': 4, 'roiidx': 27, 'best_view': "dtLat"},
+                { 'NETWORK': 5, 'roiidx': 41, 'best_view': "dtLat"},
+                { 'NETWORK': 6, 'roiidx': 50, 'best_view': "dtLat"},
+                { 'NETWORK': 7, 'roiidx': 65, 'best_view': "dtLat"}]
 
 # could also be NETWORK4 idx 33
 # seed_vertices = [ {'Name':'L-precuneus', "vertex" : 13363, 'hemi': 'L'},
@@ -98,8 +98,7 @@ PINTnets = [{ 'NETWORK': 2, 'roiidx': 5},
 #                   {'Name':'L-anterior-insula', "vertex" : 10939, 'hemi': 'L'},
 #                   {'Name':'R-mpfc', "vertex" : 28901, 'hemi': 'R'}]
 
-## set radius of geodesic ROIS
-SEED_RADIUS = 4
+
 
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
@@ -278,6 +277,10 @@ if not index_only or snaps_only:
                                 '{}.R.midthickness.32k_fs_LR.surf.gii'.format(subject)),
                             rois_dscalar])
 
+                    docmd(['wb_command', '-cifti-palette', rois_dscalar,
+                        'MODE_AUTO_SCALE', rois_dscalar,
+                        '-palette-name', 'power_surf'])
+
                     ## makes the seedcorr_dscalar
                     if vert_type == 'ivertex':
                         meants = imeants.iloc[:,roiidx - 1].values
@@ -301,10 +304,10 @@ if not index_only or snaps_only:
                         os.path.join(tmpdir, 'template.dscalar.nii'),
                         seedcorr_dscalar])
 
-                    if seedcorr_palette:
-                        docmd(['wb_command', '-cifti-palette', seedcorr_dscalar,
-                            'MODE_AUTO_SCALE', seedcorr_dscalar,
-                            '-palette-name', seedcorr_palette])
+
+                    docmd(['wb_command', '-cifti-palette', seedcorr_dscalar,
+                        'MODE_AUTO_SCALE_PERCENTAGE', seedcorr_dscalar,
+                        '-palette-name', 'PSYCH-NO-NONE'])
 
 
                     ## copy out template .scene file and find and replace the subid and hcppath
@@ -328,6 +331,9 @@ if not index_only or snaps_only:
                     qchtml = open(qchtml,'w')
                     qchtml.write('<!DOCTYPE html>\n<HTML><TITLE> {} {}{}</TITLE>\n'.format(subject,vert_type,network))
                     write_htmlheader(qchtml)
+                    qchtml.write('<ul>\n  ')
+                    qchtml.write('<li><a href="qc_sub.html">Subject Page</a></li>\n')
+                    qchtml.write('</ul>\n')
                     qchtml.write('<body>\n<h1> {} network {} {} seed correlation </h1>\n'.format(subject,network, vert_type))
 
                     ## for each scene, generate the pics and add to qc page
@@ -379,4 +385,4 @@ if not index_only or snaps_only:
 
 if not DEBUG: docmd(['rmdir', os.path.join(hcp_data_dir,'scene')])
 #get rid of the tmpdir
-shutil.rmtree(tmpdirbase)
+if not DEBUG: shutil.rmtree(tmpdirbase)
