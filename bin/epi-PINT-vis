@@ -67,7 +67,7 @@ template_dir = os.path.join(epi.config.find_epitome(),'assets','hcp_qc')
 # SplitHorizontal: Wether or not to split the image in half and display it as a line.
 QCmodes = {
     'seedcorr':{
-        "TemplateFile": 'mapvis_template.scene',
+        "TemplateFile": 'scrois_template.scene',
         "scene_list" :  [
             {"Idx": 2, "Name": "dtDorsal",  "MakeIndex": False,  "SplitHorizontal" : False,"Keep":False},
             {"Idx": 3, "Name": "dtVentral", "MakeIndex": False, "SplitHorizontal" : False,"Keep":False},
@@ -407,7 +407,7 @@ if not index_only or snaps_only:
                     scene_txt = scene_txt.replace('SUBJID',subject)
                     scene_txt = scene_txt.replace('SEEDMASKDIR', os.path.dirname(rois_dscalar))
                     scene_txt = scene_txt.replace('SEEDMASKRELDIR', os.path.relpath(os.path.dirname(rois_dscalar),os.path.dirname(scenefile)))
-                    scene_txt = scene_txt.replace('SEEDMASKGII', os.path.basename(rois_dscalar))
+                    scene_txt = scene_txt.replace('SEEDMASKCIFTI', os.path.basename(rois_dscalar))
                     scene_txt = scene_txt.replace('SEEDCORRDIR', os.path.dirname(seedcorr_dscalar))
                     scene_txt = scene_txt.replace('SEEDCORRRELDIR', os.path.relpath(os.path.dirname(seedcorr_dscalar),os.path.dirname(scenefile)))
                     scene_txt = scene_txt.replace('SEEDCORRCIFTI', os.path.basename(seedcorr_dscalar))
