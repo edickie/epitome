@@ -29,8 +29,8 @@ It pastes the pretty pictures together into some .html QC pages
 
 """
 import matplotlib
-matplotlib.use('Agg')
-import pyplot as plt
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 import seaborn as sns
 import epitome as epi
 import os
