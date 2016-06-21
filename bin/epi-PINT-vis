@@ -343,7 +343,6 @@ if not index_only or snaps_only:
                 ## make a dscalar of the network map
                 networkdf = summary_df.loc[summary_df.loc[:,'NETWORK'] == network,:]
                 networkdf.to_csv(os.path.join(tmpdir,'networkdf.csv'),
-                                columns = ['hemi', 'ivertex','tvertex'],
                                 index = False)
 
                 qcsubhtml.write('<div class="container" style="width: 100%;">\n')
@@ -351,8 +350,8 @@ if not index_only or snaps_only:
 
                 for vert_type in ['tvertex','ivertex']:
 
-                    rois_dscalar = os.path.join(tmpdir,'rois{}{}.dscalar.nii'.format(
-                                                            vert_type, network))
+                    xrois_dscalar = os.path.join(tmpdir,'xrois.dscalar.nii')
+                    rois_dscalar = os.path.join(tmpdir,'rois.dscalar.nii')
 
                     ## make the overlaying ROIs
                     docmd(['epi-surface-rois',
@@ -363,12 +362,35 @@ if not index_only or snaps_only:
                                 '{}.L.midthickness.32k_fs_LR.surf.gii'.format(subject)),
                             os.path.join(hcp_data_dir, subject, 'MNINonLinear','fsaverage_LR32k',
                                 '{}.R.midthickness.32k_fs_LR.surf.gii'.format(subject)),
-                            rois_dscalar])
+                            xrois_dscalar])
 
+                    ## make rois for alternative (if vertex_48 is in df, meaning failed to stop iterating)
+                    if vert_type == "ivertex" and 'vertex_48' in networkdf.columns:
+                        if networkdf.loc[:,'dist_49'].sum() > 0:
+                            yrois_dscalar = os.path.join(tmpdir,'yrois.dscalar.nii')
+                            ## make the overlaying ROIs
+                            docmd(['epi-surface-rois',
+                                    '--vertex-col', 'vertex_48',
+                                    os.path.join(tmpdir,'networkdf.csv'),
+                                    str(SEED_RADIUS),
+                                    os.path.join(hcp_data_dir, subject, 'MNINonLinear','fsaverage_LR32k',
+                                        '{}.L.midthickness.32k_fs_LR.surf.gii'.format(subject)),
+                                    os.path.join(hcp_data_dir, subject, 'MNINonLinear','fsaverage_LR32k',
+                                        '{}.R.midthickness.32k_fs_LR.surf.gii'.format(subject)),
+                                    yrois_dscalar])
+
+                        else: yrois_dscalar = xrois_dscalar
+                    else: yrois_dscalar = xrois_dscalar
+
+                    ## combine both solutions into one roi result
+                    docmd(['wb_command','-cifti-math','((x*2)+y)',rois_dscalar,
+                            '-var','x',xrois_dscalar,
+                            '-var','y',yrois_dscalar])
+
+                    ## set the palette on the roi to power_surf (moslty grey)
                     docmd(['wb_command', '-cifti-palette', rois_dscalar,
                         'MODE_AUTO_SCALE', rois_dscalar,
                         '-palette-name', 'power_surf'])
-
                     ## makes the seedcorr_dscalar
                     if vert_type == 'ivertex':
                         meants = imeants.iloc[:,roiidx - 1].values
