@@ -28,8 +28,9 @@ This makes pretty pictures of your hcp views using connectome workbenches "show 
 It pastes the pretty pictures together into some .html QC pages
 
 """
-import seaborn as sns
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import seaborn as sns
 import epitome as epi
 import os
 import subprocess
