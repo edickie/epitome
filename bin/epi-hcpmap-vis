@@ -8,13 +8,14 @@ Usage:
     epi-hcpmap-vis index [options] <map-name>
 
 Arguments:
-    <map.dscalar.nii>        A dscalar map to make pics of
+    <map.dscalar.nii>        A dscalar map to make pics of or a nifti to convert to a
+                             dscalar map and then make pics of
     <subject>                Subject ID for HCP surfaces
     <map-name>               Name of dscalar map as it will appear in qc page filenames
 
 Options:
   --qcdir PATH             Full path to location of QC directory
-  --roi-overlay FILE       An mask of seeds you may want to overlay on your seedcorrelation maps
+  --roi-overlay FILE       A mask of seeds you may want to overlay on your seed correlation maps
   --hcp-data-dir PATH      The directory for HCP subjects (overrides HCP_DATA enviroment variable)
   --subjects-filter STR    A string that can be used to filter out subject directories
   --use-all-dirs           Turn off automatic filtering of subject ids (to remove 'bin'ect)
@@ -36,7 +37,7 @@ There are three modes right now
         ++ --NameOffMRI and --SmoothingFWHM -
         ++ these should match what was input in the func2hcp command
 
-Also this function works by writting a temporary file into the HCP_DATA directory,
+Also this function works by writing a temporary file into the HCP_DATA directory,
 therefore, write permission in the HCP_DATA directory is required.
 
 By default, all subjects in the directory will be included.
@@ -44,7 +45,7 @@ The "--subject" option can be used to run only the specified subject id for test
 
 Requires connectome workbench (i.e. wb_command and imagemagick)
 
-You can changed the color palette for all pics using the --colour-palette flag.
+You can change the color palette for all pics using the --colour-palette flag.
 The default colour palette is videen_style. Some people like 'PSYCH-NO-NONE' better.
 For more info on palettes see wb_command help.
 
@@ -88,8 +89,8 @@ template_dir = os.path.join(epi.config.find_epitome(),'assets','hcp_qc')
 ## define the settings for the qcpages
 # Note: order for the list is the order in the scene file
 # Name: the name that will apear as filenames and in title of qc page
-# MakeIndex : if True, this will create a html page of everyparticipant for this views
-# SplitHorizontal: Wether or not to split the image in half and display it as a line.
+# MakeIndex : if True, this will create a html page of every participant for this views
+# SplitHorizontal: Whether or not to split the image in half and display it as a line.
 qc_dict = {
     "scene_list" :  [
         {"Idx": 2, "Name": "dtDorsal",  "MakeIndex": False,  "SplitHorizontal" : False,"Keep":False},
@@ -168,7 +169,7 @@ def write_index(qcdir, subjects, viewname, mapname):
     ## close the html index stream
     htmlindex.close()
 
-## pic a QC dict
+## pick a QC dict
 scene_list = qc_dict['scene_list']
 montage_list = qc_dict['montage_list']
 if seedmap:
@@ -191,7 +192,16 @@ tmpdirbase = tempfile.mkdtemp()
 ## set the qcdir Structure
 if not qcdir:
     qcdir = os.path.join(hcp_data_dir,'qc_mapvis')
+    
+tmp, ext1 = os.path.splitext(seedcorr_dscalar)
+base, ext2 = os.path.splitext(tmp)
 
+## Converts nifti to cifti if needed
+if ext1 == '.gz' or ext2 != '.dscalar':
+    out = base + '.dscalar.nii'
+    cmd = ['epi-result-vol2cifti', seedcorr_dscalar, os.path.join(hcp_data_dir, subject), out]
+    docmd(cmd)
+    seedcorr_dscalar = out       
 
 ## make pics and qcpage for each subject
 if not index_only or snaps_only:
@@ -292,10 +302,10 @@ if index_only or not snaps_only:
     subjects = epi.utilities.get_subj(qcdir)
     for scene_dict in scene_list:
         if scene_dict['MakeIndex']==True:
-            write_index(qcdir, subjects, scene_dict['Name'])
+            write_index(qcdir, subjects, scene_dict['Name'], mapname)
     for montage_dict in montage_list:
         if montage_dict['MakeIndex']==True:
-            write_index(qcdir, subjects, montage_dict['Name'])
+            write_index(qcdir, subjects, montage_dict['Name'], mapname)
 
 #get rid of the tmpdir
 shutil.rmtree(tmpdirbase)
