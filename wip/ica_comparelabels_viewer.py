@@ -3,13 +3,15 @@
 Mash good and bad ica output pics together into on html page of sanity check qc.
 
 Usage:
-  ica_comparelabels_viewer.py [options] <input.ica> <labelname1> <labelname2>
+  ica_comparelabels_viewer.py [options] <labelname1> <labelname2> <input.ica>...
 
 Arguments:
-    <input.ica>        Top directory for the output file structure
     <labelname1>       Filename containing first set of labels
     <labelname2>       Filename containing second set of labels
+    <input.ica>        Ica output directories
+
 Options:
+  --csvreport FILE         Name of csv output of summary stats.
   -v,--verbose             Verbose logging
   --debug                  Debug logging in Erin's very verbose style
   -n,--dry-run             Dry run
@@ -39,20 +41,31 @@ def docmd(cmdlist):
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
 
-def write_html_section(htmlhandle, IClist,SectionTitle):
-
-    htmlpage.write('<h2><font color="white">'+SectionTitle+'</font></h2>')
+def write_html_section(featdir, htmlhandle, IClist,SectionClass):
+    SectionTitle = "{} Components".format(SectionClass)
+    htmlhandle.write('<h2>'+SectionTitle+'</h2>')
     for IC in IClist:
-        pic = os.path.join(inputdir,'filtered_func_data.ica','report','IC_'+ str(IC) +'_thresh.png')
-        icreport = os.path.join(inputdir,'filtered_func_data.ica','report','IC_'+ str(IC) +'.html')
-        picrelpath = os.path.relpath(pic,inputdir)
-        icreppath = os.path.relpath(icreport,inputdir)
-        htmlpage.write('<a href="'+ icreppath + '" style="color: #99CCFF" >')
-        htmlpage.write('<img src="' + picrelpath + '" "WIDTH=800" > ')
-        htmlpage.write(icreppath+ '</a><br>\n')
+        ## determine absolute and relative paths to the web page ica report data
+        pic1 = os.path.join(featdir,'filtered_func_data.ica','report','IC_'+ str(IC) +'_thresh.png')
+        pic2 = os.path.join(featdir,'filtered_func_data.ica','report','t'+ str(IC) +'.png')
+        icreport = os.path.join(featdir,'filtered_func_data.ica','report','IC_'+ str(IC) +'.html')
+        pic1relpath = os.path.relpath(pic1,os.path.dirname(htmlhandle.name))
+        pic2relpath = os.path.relpath(pic2,os.path.dirname(htmlhandle.name))
+        icreppath = os.path.relpath(icreport,os.path.dirname(htmlhandle.name))
+        ## write it to the html
+        htmlhandle.write('<p class="{}">\n'.format(SectionClass))
+        htmlhandle.write('<a href="{}"><img src="{}"></a>\n'.format(icreppath,pic1relpath))
+        htmlhandle.write('<a href="{}"><img src="{}">{}</a><br>\n'.format(icreppath,pic2relpath,icreppath))
+        htmlhandle.write('<input type="radio" name="IC{}" value="Signal"'.format(IC))
+        if (SectionClass == "SignalNoise") or (SectionClass == "SignalSignal"): htmlhandle.write(' checked="checked"')
+        htmlhandle.write('> Signal')
+        htmlhandle.write('<input type="radio" name="IC{}" value="Noise"'.format(IC))
+        if (SectionClass == "NoiseSignal") or (SectionClass == "NoiseNoise"): htmlhandle.write(' checked="checked"')
+        htmlhandle.write('> Noise')
+        htmlhandle.write('</p>\n')
 
 
-def get_SignalandNoise(inputlabelfile, numICs) :
+def get_SignalandNoise(inputdir, inputlabelfile, numICs) :
     labelpath = os.path.join(inputdir,inputlabelfile)
     if os.path.isfile(labelpath):
         a=open(labelpath,'rb')
@@ -60,62 +73,214 @@ def get_SignalandNoise(inputlabelfile, numICs) :
         if lines:
             first_line = lines[:1]
             last_line = lines[-1]
+
         bad_ica = last_line.split(',')
         for i in range(len(bad_ica)):
             bad_ica[i] = bad_ica[i].replace('[','')
             bad_ica[i] = bad_ica[i].replace(']','')
             bad_ica[i] = bad_ica[i].replace(' ','')
             bad_ica[i] = bad_ica[i].replace('\n','')
-        bad_ica = map(int,bad_ica)
+
+        ## if bad icas are empty, set the empty list, if not set to mat to int
+        if bad_ica == ['']:
+            bad_ica = []
+        else:
+            bad_ica = map(int,bad_ica)
+            if max(bad_ica) > numICs:
+                print("We have a problem, more labels in {} than ICs".format(inputlabelfile))
+                print("Number of ICs: {}".format(numICs))
+                print("Labeled Bad ICs {}".format(bad_ica))
+
     else:
         sys.exit("IC labels file {} not found".format(labelpath))
 
-    if  max(bad_ica) > numICs:
-        print("We have a problem, more labels in {} than ICs".format(inputlabelfile))
-        print("Number of ICs: {}".format(numICs))
-        print("Labeled Bad ICs {}".format(bad_ica))
-
     good_ica = list(set(range(1,numICs+1)) - set(bad_ica))
     return(good_ica,bad_ica)
+
+def write_featdir_html(featdir, htmlpath, noisesignal, signalnoise, signalsignal, noisenoise, htmltitle):
+
+    handlablefile = os.path.join(featdir, "hand_labels_noise.txt")
+    handlabelrelpath = os.path.relpath(handlablefile,os.path.dirname(htmlpath))
+    htmlpage = open(htmlpath,'w')
+    htmlpage.write('<HTML><TITLE>'+htmltitle+'</TITLE>')
+    htmlpage.write('<head>\n')
+    htmlpage.write('<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>')
+    htmlpage.write('<style>\n')
+    htmlpage.write('body { background-color:#333333; '
+                    'font-family: futura,sans-serif;color:white;\n'
+                    'text-align: center;}\n')
+    htmlpage.write('p.SignalSignal {background-color:#009999;}\n')
+    htmlpage.write('p.NoiseNoise {background-color:#ff4000;}\n')
+    htmlpage.write('p.SignalNoise {background-color:#ffbf00;}\n')
+    htmlpage.write('p.NoiseSignal {background-color:#ff4000;}\n')
+    htmlpage.write('img {width:800; display: block;margin-left: auto;margin-right: auto }\n')
+    htmlpage.write('h2 {color:white; }\n')
+    htmlpage.write('</style></head>\n')
+    htmlpage.write('<BODY>\n')
+    htmlpage.write('<form action="{}" method="post" id="main">\n'.format(handlabelrelpath))
+    htmlpage.write('<h1>Components for '+ featdir +'</h1>')
+
+    ## Signal for both
+    write_html_section(featdir, htmlpage, signalnoise,"SignalNoise")
+
+    ## add a break
+    htmlpage.write('<br>\n')
+
+    ## Signal for both
+    write_html_section(featdir, htmlpage, noisesignal,"NoiseSignal")
+
+    ## add a break
+    htmlpage.write('<br>\n')
+
+    ## Signal for both
+    write_html_section(featdir, htmlpage, signalsignal,"SignalSignal")
+
+    ## add a break
+    htmlpage.write('<br>\n')
+
+    ## Signal for both
+    write_html_section(featdir, htmlpage, noisenoise,"NoiseNoise")
+
+    ## finish the file
+    htmlpage.write('<br>\n')
+    htmlpage.write('<input type="submit" name="submit" value="Show/Update Labels"></br>\n</form>\n')
+    htmlpage.write('<br><h3>To write handlabels copy this line into the terminal:</h3>\n')
+    htmlpage.write('<br><p>echo "<span id="output"></span>')
+    htmlpage.write('" > ' + handlablefile + '</p><br>\n')
+
+    htmlpage.write('<script type="text/javascript">\n')
+    htmlpage.write('$("#main").submit(function(e) {\n')
+    htmlpage.write('  e.preventDefault();\n')
+    htmlpage.write('  var handlabels = "[";\n')
+
+    for IC in range(1, len(signal) + len(noise) + 1):
+        htmlpage.write('  if ($("input[name=IC' + str(IC) +']:checked").val() == "Noise") ')
+        htmlpage.write('{handlabels += "'+ str(IC) +', ";}\n')
+
+    htmlpage.write('  handlabels = handlabels.substring(0,handlabels.length - 2) + "]";\n')
+    htmlpage.write('  $("#output").text(handlabels);\n});\n</script>\n')
+
+    htmlpage.write('</BODY>\n</HTML>\n')
+    htmlpage.close() # you can omit in most cases as the destructor will call it
+
 
 ## inputdir='/home/edickie/analysis/colin_fix/featprep/H002_NY_imitate.feat'
 ## icalabels='hand_labels_noise.txt'
 if DEBUG: print arguments
 
-## get the number of ICs from the melodic report
-ICpngs = glob.glob(os.path.join(inputdir,'filtered_func_data.ica','report','IC_*_thresh.png'))
-numICs = len(ICpngs)
 
-## get the signal and noise components from both files
-signal1, noise1 = get_SignalandNoise(icalabels1, numICs)
-signal2, noise2 = get_SignalandNoise(icalabels2, numICs)
+## naming convention for individual html files from labelname
+labelbasename1 = os.path.splitext(icalabels1)[0]
+labelbasename2 = os.path.splitext(icalabels2)[0]
 
-## make the html filename and title out of the csv filenames
-stem1 = os.path.splitext(icalabels1)[0]
-stem2 = os.path.splitext(icalabels2)[0]
-htmlfilename = "compare_{}_{}.html".format(stem1,stem2)
-htmltitle="Comparing ICA labels from {} and {}".format(stem1, stem2)
-htmlpage = open(os.path.join(inputdir,htmlfilename),'w')
-htmlpage.write('<HTML><TITLE>'+htmltitle+'</TITLE>')
-htmlpage.write('<BODY BGCOLOR=#333333>\n')
-htmlpage.write('<h1><font color="white">Components for '+ inputdir +'</font></h1>')
+## Start the index html file
+htmlindexfile = "compare_{}_vs_{}_report.html".format(labelbasename1,labelbasename2)
+htmlindex = open(htmlindexfile,'w')
+htmlindex.write('<HTML><TITLE> ICA FIX qc index </TITLE>\n'
+                '<head>\n<style>\n'
+                'body { background-color:#333333; '
+                'font-family: futura,sans-serif;'
+                'color:white;text-align: center;}\n'
+                'a:link {color:#99CCFF;}\n'
+                'a:visited  {color: #AC58FA;}\n'
+                'table { margin: 25px auto; '
+                '        border-collapse: collapse;'
+                '        text-align: left;'
+                '        width: 98%; '
+                '        border: 1px solid grey;'
+                '        border-bottom: 2px solid #00cccc;} \n'
+                'th {background: #00cccc;\n'
+                'color: #fff;'
+                'text-transform: uppercase;};'
+                'td {border-top: thin solid;'
+                '    border-bottom: thin solid;}\n'
+                '</style></head>\n')
 
-## signal in 1, noise in 2
-write_html_section(htmlpage, list(set(signal1).intersection(noise2)),
-    "Signal in {}, Noise in {}".format(stem1, stem2))
 
-## Noise in 1, signal in 2
-write_html_section(htmlpage, list(set(noise1).intersection(signal2)),
-    "Noise in {}, Signal in {}".format(stem1, stem2))
+htmltitle="{} vs {}".format(labelbasename1,labelbasename2)
 
-## Signal for both
-write_html_section(htmlpage, list(set(signal1).intersection(signal2)),
-    "Signal in both {} and {}".format(stem1, stem2))
+## check that the csvreport exists
+if not csvfilename:
+    csvfilename = "compare_{}_vs_{}_report.csv".format(labelbasename1,labelbasename2)
 
-## Signal for both
-write_html_section(htmlpage, list(set(noise1).intersection(noise2)),
-    "Noise in both {} and {}".format(stem1, stem2))
+## load the pandas dataframe
+csvreport = pd.DataFrame({ 'featdir' : pd.Categorical(featdirs),
+                           'NumSignal1' : np.empty([len(featdirs)], dtype=int),
+                           'NumSignal2' : np.empty([len(featdirs)], dtype=int),
+                           'Accuracy' : np.empty([len(featdirs)], dtype=int),
+                           'Precision' : np.empty([len(featdirs)], dtype=int),
+                           'numICs' : np.empty([len(featdirs)], dtype=int)})
+#csvreport = loadreportcsv(csvfilename,featdirs)
+#csvreport.labelfile = icalabels
+
+## add the title
+htmlindex.write('<h1>ICA FIX labels comparison index</h1>')
+htmlindex.write('<h2>Labels: {} and {}</h2>'.format(labelbasename1, labelbasename2))
+
+## add the table header
+htmlindex.write('<table>'
+                '<tr><th>Path</th>')
+htmlindex.write('<th>{}Number Signal ICs</th>'.format(labelbasename1))
+htmlindex.write('<th>{}Number Signal ICs</th>'.format(labelbasename2))
+htmlindex.write('<th>Accuracy</th>'
+                '<th>Precision</th>'
+                '<th>Total ICs</th></tr>')
+
+for featdir in featdirs:
+
+    ## get the number of ICA components from the report length
+    ICpngs = glob.glob(os.path.join(featdir,'filtered_func_data.ica','report','IC_*_thresh.png'))
+    numICs = len(ICpngs)
+
+    ## get the signal and noise components from both files
+    signal1, noise1 = get_SignalandNoise(featdir, icalabels1, numICs)
+    signal2, noise2 = get_SignalandNoise(featdir, icalabels2, numICs)
+
+    ## get the signal and noise components from both files
+    signalnoise = list(set(signal1).intersection(noise2))
+    noisesignal = list(set(noise1).intersection(signal2))
+    signalsignal = list(set(signal1).intersection(signal2))
+    noisenoise = list(set(noise1).intersection(noise2))
+
+    ## write the featdir's html file
+    featdirhtml = os.path.join(featdir,"compare_{}_to_{}_report.html".format(labelbasename))
+    write_featdir_html(featdir,
+                       featdirhtml,
+                       signalnoise,
+                       noisesignal,
+                       signalsignal,
+                       noisenoise,
+                        "Compare {} vs {} ICA labels".format(labelbasename1, labelbasename2))
+
+    ## print relative link to index
+    featdir_relpath = os.path.relpath(featdirhtml,os.path.dirname(htmlindex.name))
+    featdir_relname = os.path.dirname(featdir_relpath)
+
+    htmlindex.write('<tr>') ## table new row
+    htmlindex.write('<td>') ## first data cell
+    htmlindex.write('<a href="{}">{}</a>'.format(featdir_relpath,featdir_relname))
+    htmlindex.write('</td>') ## end of cell
+
+    ## print basic stats - % excluded, total IC's number kept, total IC
+    NumSignal1 = len(signal1)
+    NumSignal2 = len(signal2)
+    Accuracy = (len(signalsignal) + len(noisenoise))/numICs
+    Precision = len(signalsignal)/(len(signalsignal)+len(noisesignal))
+    htmlindex.write("<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>".format(NumSignal1,NumSignal2,Accuracy,Precision,numICs))
+    htmlindex.write('</tr>')
+
+    ## write this info to csvreport
+    idx = csvreport[csvreport.featdir == featdir].index[0]
+    csvreport.loc[idx,'NumSignal1'] = NumSignal1
+    csvreport.loc[idx,'NumSignal2'] = NumSignal2
+    csvreport.loc[idx,'Accuracy'] = Accuracy
+    csvreport.loc[idx,'Precision'] = Precision
+    csvreport.loc[idx,'numICs'] = numICs
 
 ## finish the file
-htmlpage.write('</BODY></HTML>\n')
-htmlpage.close() # you can omit in most cases as the destructor will call it
+htmlindex.write('</table>\n')
+htmlindex.write('</BODY></HTML>\n')
+htmlindex.close() # you can omit in most cases as the destructor will call it
+
+## write the results out to a file
+csvreport.to_csv(csvfilename, sep=',', index = False)
