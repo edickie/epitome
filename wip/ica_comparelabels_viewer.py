@@ -101,7 +101,7 @@ def get_SignalandNoise(inputdir, inputlabelfile, numICs) :
 
 def write_featdir_html(featdir, htmlpath,
                        labelbasename1, labelbasename2,
-                       noisesignal, signalnoise, signalsignal, noisenoise,
+                       signalnoise, noisesignal, signalsignal, noisenoise,
                        htmltitle):
 
     handlablefile = os.path.join(featdir, "hand_labels_noise.txt")
@@ -117,7 +117,7 @@ def write_featdir_html(featdir, htmlpath,
     htmlpage.write('p.SignalSignal {background-color:#009999;}\n')
     htmlpage.write('p.NoiseNoise {background-color:#ff4000;}\n')
     htmlpage.write('p.SignalNoise {background-color:#ffbf00;}\n')
-    htmlpage.write('p.NoiseSignal {background-color:#ff4000;}\n')
+    htmlpage.write('p.NoiseSignal {background-color:#990099;}\n')
     htmlpage.write('img {width:800; display: block;margin-left: auto;margin-right: auto }\n')
     htmlpage.write('h2 {color:white; }\n')
     htmlpage.write('</style></head>\n')
