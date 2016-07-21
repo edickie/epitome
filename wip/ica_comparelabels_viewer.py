@@ -22,15 +22,18 @@ Takes the images from the ICA report and combines them into webpages sorted as g
 Written by Erin W Dickie, November 12, 2015
 """
 from docopt import docopt
+import pandas as pd
+import numpy as np
 import os
 import subprocess
 import glob
 import sys
 
 arguments       = docopt(__doc__)
-inputdir        = arguments['<input.ica>']
+featdirs        = arguments['<input.ica>']
 icalabels1       = arguments['<labelname1>']
 icalabels2       = arguments['<labelname2>']
+csvfilename     = arguments['--csvreport']
 VERBOSE         = arguments['--verbose']
 DEBUG           = arguments['--debug']
 DRYRUN          = arguments['--dry-run']
@@ -41,8 +44,7 @@ def docmd(cmdlist):
     if DEBUG: print ' '.join(cmdlist)
     if not DRYRUN: subprocess.call(cmdlist)
 
-def write_html_section(featdir, htmlhandle, IClist,SectionClass):
-    SectionTitle = "{} Components".format(SectionClass)
+def write_html_section(featdir, htmlhandle, IClist,SectionClass, SectionTitle):
     htmlhandle.write('<h2>'+SectionTitle+'</h2>')
     for IC in IClist:
         ## determine absolute and relative paths to the web page ica report data
@@ -97,7 +99,10 @@ def get_SignalandNoise(inputdir, inputlabelfile, numICs) :
     good_ica = list(set(range(1,numICs+1)) - set(bad_ica))
     return(good_ica,bad_ica)
 
-def write_featdir_html(featdir, htmlpath, noisesignal, signalnoise, signalsignal, noisenoise, htmltitle):
+def write_featdir_html(featdir, htmlpath,
+                       labelbasename1, labelbasename2,
+                       noisesignal, signalnoise, signalsignal, noisenoise,
+                       htmltitle):
 
     handlablefile = os.path.join(featdir, "hand_labels_noise.txt")
     handlabelrelpath = os.path.relpath(handlablefile,os.path.dirname(htmlpath))
@@ -121,25 +126,27 @@ def write_featdir_html(featdir, htmlpath, noisesignal, signalnoise, signalsignal
     htmlpage.write('<h1>Components for '+ featdir +'</h1>')
 
     ## Signal for both
-    write_html_section(featdir, htmlpage, signalnoise,"SignalNoise")
+    write_html_section(featdir, htmlpage, signalnoise, "SignalNoise",
+                        "Signal in {} Noise in {}".format(labelbasename1, labelbasename2))
 
     ## add a break
     htmlpage.write('<br>\n')
 
     ## Signal for both
-    write_html_section(featdir, htmlpage, noisesignal,"NoiseSignal")
+    write_html_section(featdir, htmlpage, noisesignal, "NoiseSignal",
+                        "Noise in {} Signal in {}".format(labelbasename1, labelbasename2))
 
     ## add a break
     htmlpage.write('<br>\n')
 
     ## Signal for both
-    write_html_section(featdir, htmlpage, signalsignal,"SignalSignal")
+    write_html_section(featdir, htmlpage, signalsignal,"SignalSignal","Signal in both")
 
     ## add a break
     htmlpage.write('<br>\n')
 
     ## Signal for both
-    write_html_section(featdir, htmlpage, noisenoise,"NoiseNoise")
+    write_html_section(featdir, htmlpage, noisenoise,"NoiseNoise","Noise in both")
 
     ## finish the file
     htmlpage.write('<br>\n')
@@ -153,7 +160,8 @@ def write_featdir_html(featdir, htmlpath, noisesignal, signalnoise, signalsignal
     htmlpage.write('  e.preventDefault();\n')
     htmlpage.write('  var handlabels = "[";\n')
 
-    for IC in range(1, len(signal) + len(noise) + 1):
+    IClist= range(1, len(signalsignal) + len(noisenoise) + len(signalnoise) + len(noisesignal) +1)
+    for IC in IClist:
         htmlpage.write('  if ($("input[name=IC' + str(IC) +']:checked").val() == "Noise") ')
         htmlpage.write('{handlabels += "'+ str(IC) +', ";}\n')
 
@@ -207,8 +215,8 @@ if not csvfilename:
 csvreport = pd.DataFrame({ 'featdir' : pd.Categorical(featdirs),
                            'NumSignal1' : np.empty([len(featdirs)], dtype=int),
                            'NumSignal2' : np.empty([len(featdirs)], dtype=int),
-                           'Accuracy' : np.empty([len(featdirs)], dtype=int),
-                           'Precision' : np.empty([len(featdirs)], dtype=int),
+                           'Accuracy' : np.empty([len(featdirs)], dtype=float),
+                           'Precision' : np.empty([len(featdirs)], dtype=float),
                            'numICs' : np.empty([len(featdirs)], dtype=int)})
 #csvreport = loadreportcsv(csvfilename,featdirs)
 #csvreport.labelfile = icalabels
@@ -220,8 +228,8 @@ htmlindex.write('<h2>Labels: {} and {}</h2>'.format(labelbasename1, labelbasenam
 ## add the table header
 htmlindex.write('<table>'
                 '<tr><th>Path</th>')
-htmlindex.write('<th>{}Number Signal ICs</th>'.format(labelbasename1))
-htmlindex.write('<th>{}Number Signal ICs</th>'.format(labelbasename2))
+htmlindex.write('<th>{} Signal ICs</th>'.format(labelbasename1))
+htmlindex.write('<th>{} Signal ICs</th>'.format(labelbasename2))
 htmlindex.write('<th>Accuracy</th>'
                 '<th>Precision</th>'
                 '<th>Total ICs</th></tr>')
@@ -243,9 +251,11 @@ for featdir in featdirs:
     noisenoise = list(set(noise1).intersection(noise2))
 
     ## write the featdir's html file
-    featdirhtml = os.path.join(featdir,"compare_{}_to_{}_report.html".format(labelbasename))
+    featdirhtml = os.path.join(featdir,"compare_{}_to_{}_report.html".format(labelbasename1,labelbasename2))
     write_featdir_html(featdir,
                        featdirhtml,
+                       labelbasename1,
+                       labelbasename2,
                        signalnoise,
                        noisesignal,
                        signalsignal,
@@ -264,9 +274,9 @@ for featdir in featdirs:
     ## print basic stats - % excluded, total IC's number kept, total IC
     NumSignal1 = len(signal1)
     NumSignal2 = len(signal2)
-    Accuracy = (len(signalsignal) + len(noisenoise))/numICs
-    Precision = len(signalsignal)/(len(signalsignal)+len(noisesignal))
-    htmlindex.write("<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>".format(NumSignal1,NumSignal2,Accuracy,Precision,numICs))
+    Accuracy = (float((len(signalsignal) + len(noisenoise)))/float(numICs))*100
+    Precision = float(len(signalsignal))/float((len(signalsignal)+len(noisesignal)))*100
+    htmlindex.write("<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>".format(NumSignal1,NumSignal2,format(Accuracy, '.1f'),format(Precision, '.1f'),numICs))
     htmlindex.write('</tr>')
 
     ## write this info to csvreport
