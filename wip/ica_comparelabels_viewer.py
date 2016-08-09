@@ -213,8 +213,10 @@ if not csvfilename:
 
 ## load the pandas dataframe
 csvreport = pd.DataFrame({ 'featdir' : pd.Categorical(featdirs),
-                           'NumSignal1' : np.empty([len(featdirs)], dtype=int),
-                           'NumSignal2' : np.empty([len(featdirs)], dtype=int),
+                           'NumSignalNoise' : np.empty([len(featdirs)], dtype=int),
+                           'NumNoiseSignal' : np.empty([len(featdirs)], dtype=int),
+                           'NumSignalSignal' : np.empty([len(featdirs)], dtype=int),
+                           'NumNoiseNoise' : np.empty([len(featdirs)], dtype=int),
                            'Accuracy' : np.empty([len(featdirs)], dtype=float),
                            'Precision' : np.empty([len(featdirs)], dtype=float),
                            'numICs' : np.empty([len(featdirs)], dtype=int)})
@@ -281,8 +283,10 @@ for featdir in featdirs:
 
     ## write this info to csvreport
     idx = csvreport[csvreport.featdir == featdir].index[0]
-    csvreport.loc[idx,'NumSignal1'] = NumSignal1
-    csvreport.loc[idx,'NumSignal2'] = NumSignal2
+    csvreport.loc[idx,'NumSignalNoise'] = len(signalnoise)
+    csvreport.loc[idx,'NumNoiseSignal'] = len(noisesignal)
+    csvreport.loc[idx,'NumSignalSignal'] = len(signalsignal)
+    csvreport.loc[idx,'NumNoiseNoise'] = len(noisenoise)
     csvreport.loc[idx,'Accuracy'] = Accuracy
     csvreport.loc[idx,'Precision'] = Precision
     csvreport.loc[idx,'numICs'] = numICs
