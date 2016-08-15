@@ -144,7 +144,7 @@ def main():
                    '-var', 'x', rois_2D, '-column', '1'])
 
     if probmap:
-        mergedoutput = os.path.join(tempdir,"mergedoutput.dscalar.nii")
+        mergedoutput = os.path.join(tmpdir,"mergedoutput.dscalar.nii")
     else:
         mergedoutput = output_dscalar
     # combine result surfaces into a cifti file
@@ -153,7 +153,7 @@ def main():
            '-right-metric', os.path.join(tmpdir,'rois_R_1D.shape.gii')])
 
     if probmap:
-        docmd(['wb_command', '-metric-math',
+        docmd(['wb_command', '-cifti-math',
                 '(x/{})'.format(len(df)), output_dscalar,
                 '-var', 'x', mergedoutput ])
 
