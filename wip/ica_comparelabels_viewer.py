@@ -277,7 +277,10 @@ for featdir in featdirs:
     NumSignal1 = len(signal1)
     NumSignal2 = len(signal2)
     Accuracy = (float((len(signalsignal) + len(noisenoise)))/float(numICs))*100
-    Precision = float(len(signalsignal))/float((len(signalsignal)+len(noisesignal)))*100
+    if ( NumSignal2 + NumSignal1) > 0 :
+        Precision = float(len(signalsignal))/float((len(signalsignal)+len(noisesignal)))*100
+    else:
+        Precision = 100
     htmlindex.write("<td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td>".format(NumSignal1,NumSignal2,format(Accuracy, '.1f'),format(Precision, '.1f'),numICs))
     htmlindex.write('</tr>')
 
