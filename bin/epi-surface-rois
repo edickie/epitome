@@ -18,6 +18,7 @@ Options:
     --labels-col COLNAME   Values in this column will be multiplied by the roi
     --overlap-logic LOGIC  Overlap logic [default: ALLOW] for wb_command
     --gaussian             Build a gaussian instead of a circular ROI.
+    --probmap              Divide the map by the number to inputs so that the sum is meaningful.
     --debug                Debug logging
     -n,--dry-run           Dry run
     -h, --help             Prints this message
@@ -89,6 +90,7 @@ def main():
     labels_col = arguments['--labels-col']
     gaussian = arguments['--gaussian']
     overlap_logic = arguments['--overlap-logic']
+    probmap = arguments['--probmap']
     DEBUG = arguments['--debug']
     DRYRUN = arguments['--dry-run']
 
@@ -141,10 +143,19 @@ def main():
             docmd(['wb_command', '-metric-math', 'x*0', rois_1D,
                    '-var', 'x', rois_2D, '-column', '1'])
 
+    if probmap:
+        mergedoutput = os.path.join(tempdir,"mergedoutput.dscalar.nii")
+    else:
+        mergedoutput = output_dscalar
     # combine result surfaces into a cifti file
-    docmd(['wb_command', '-cifti-create-dense-scalar', output_dscalar,
+    docmd(['wb_command', '-cifti-create-dense-scalar', mergedoutput,
            '-left-metric', os.path.join(tmpdir,'rois_L_1D.shape.gii'),
            '-right-metric', os.path.join(tmpdir,'rois_R_1D.shape.gii')])
+
+    if probmap:
+        docmd(['wb_command', '-metric-math',
+                '(x/{})'.format(len(df)), output_dscalar,
+                '-var', 'x', mergedoutput ])
 
     ## remove the tempdirectory
     shutil.rmtree(tmpdir)
