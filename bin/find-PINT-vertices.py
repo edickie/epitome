@@ -263,7 +263,8 @@ while iter_num < 50 and max_distance > 1:
     distance_outcol = 'dist_{}'.format(iter_num)
     df.loc[:,vertex_outcol] = -999
     df.loc[:,distance_outcol] = -99.9
-    thisorder = shuffle(df.index.tolist())
+    thisorder = df.index.tolist()
+    random.shuffle(thisorder)
 
     ## load the sampling data
     sampling_rois = rois_bilateral(df, vertex_incol, RADIUS_SAMPLING)
