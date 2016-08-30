@@ -98,12 +98,12 @@ QCmodes = {
 }
 
 
-PINTnets = [{ 'NETWORK': 2, 'roiidx': 5, 'best_view': "CombinedView"},
-                { 'NETWORK': 3, 'roiidx': 11, 'best_view': "CombinedView"},
-                { 'NETWORK': 4, 'roiidx': 27, 'best_view': "dtLat"},
-                { 'NETWORK': 5, 'roiidx': 41, 'best_view': "dtLat"},
-                { 'NETWORK': 6, 'roiidx': 50, 'best_view': "dtLat"},
-                { 'NETWORK': 7, 'roiidx': 65, 'best_view': "dtLat"}]
+PINTnets = [{ 'NETWORK': 2, 'roiidx': 72, 'best_view': "CombinedView"},
+                { 'NETWORK': 3, 'roiidx': 2, 'best_view': "CombinedView"},
+                { 'NETWORK': 4, 'roiidx': 44, 'best_view': "dtLat"},
+                { 'NETWORK': 5, 'roiidx': 62, 'best_view': "dtLat"},
+                { 'NETWORK': 6, 'roiidx': 28, 'best_view': "dtLat"},
+                { 'NETWORK': 7, 'roiidx': 14, 'best_view': "dtLat"}]
 
 # could also be NETWORK4 idx 33
 # seed_vertices = [ {'Name':'L-precuneus', "vertex" : 13363, 'hemi': 'L'},
