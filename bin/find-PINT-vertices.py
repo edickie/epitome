@@ -32,6 +32,7 @@ from scipy import stats, linalg
 import epitome as epi
 import numpy as np
 import nibabel as nib
+import random
 import os
 import sys
 import tempfile
@@ -262,6 +263,7 @@ while iter_num < 50 and max_distance > 1:
     distance_outcol = 'dist_{}'.format(iter_num)
     df.loc[:,vertex_outcol] = -999
     df.loc[:,distance_outcol] = -99.9
+    thisorder = shuffle(df.index.tolist())
 
     ## load the sampling data
     sampling_rois = rois_bilateral(df, vertex_incol, RADIUS_SAMPLING)
@@ -282,7 +284,7 @@ while iter_num < 50 and max_distance > 1:
             netmeants.loc[:,network] = calc_network_meants(func_data, sampling_rois, netlabels)
 
 
-    for idx in df.index.tolist():
+    for idx in thisorder:
         vlabel = df.loc[idx,'roiidx']
         network = df.loc[idx,'NETWORK']
         hemi = df.loc[idx,'hemi']
