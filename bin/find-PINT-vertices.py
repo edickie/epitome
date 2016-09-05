@@ -41,29 +41,7 @@ import subprocess
 import pandas as pd
 import nibabel.gifti.giftiio
 
-global RADIUS_SAMPLING
-global RADIUS_SEARCH
-arguments     = docopt(__doc__)
-func          = arguments['<func.dtseries.nii>']
-surfL         = arguments['<left-surface.gii>']
-surfR         = arguments['<right-surface.gii>']
-origcsv       = arguments['<input-vertices.csv>']
-output_prefix = arguments['<outputprefix>']
-pcorr         = arguments['--pcorr']
-outputall     = arguments['--outputall']
-RADIUS_SAMPLING = arguments['--sampling-radius']
-RADIUS_SEARCH = arguments['--search-radius']
-RADIUS_PADDING = arguments['--padding-radius']
-VERBOSE       = arguments['--verbose']
-DEBUG         = arguments['--debug']
-DRYRUN        = arguments['--dry-run']
 
-
-#mkdir a tmpdir for the
-tmpdir = tempfile.mkdtemp()
-
-###
-if DEBUG: print(arguments)
 ### Erin's little function for running things in the shell
 def docmd(cmdlist):
     "sends a command (inputed as a list) to the shell"
@@ -236,56 +214,19 @@ def partial_corr(X,Y,Z):
     ## return the partial correlation
     return pcorr
 
-
-## loading the dataframe
-df = pd.read_csv(origcsv)
-df.loc[:,'roiidx'] = pd.Series(np.arange(1,len(df.index)+1), index=df.index)
-
-## load the func data
-func_dataL, func_dataR = load_surfaceonly(func, tmpdir)
-num_Lverts = func_dataL.shape[0]
-func_data = np.vstack((func_dataL, func_dataR))
-
-## cp the surfaces to the tmpdir - this will cut down on i-o is tmpdir is ramdisk
-tmp_surfL = os.path.join(tmpdir, 'surface.L.surf.gii')
-tmp_surfR = os.path.join(tmpdir, 'surface.R.surf.gii')
-docmd(['cp', surfL, tmp_surfL])
-docmd(['cp', surfR ,tmp_surfR])
-surfL = tmp_surfL
-surfR = tmp_surfR
-
-vertex_incol = 'tvertex'
-iter_num = 0
-max_distance = 10
-
-while iter_num < 50 and max_distance > 1:
-    vertex_outcol = 'vertex_{}'.format(iter_num)
-    distance_outcol = 'dist_{}'.format(iter_num)
-    df.loc[:,vertex_outcol] = -999
-    df.loc[:,distance_outcol] = -99.9
-    thisorder = df.index.tolist()
-    random.shuffle(thisorder)
-
-    ## load the sampling data
-    sampling_rois = rois_bilateral(df, vertex_incol, RADIUS_SAMPLING)
-
-    ## load the search data
-    search_rois = rois_bilateral(df, vertex_incol, RADIUS_SEARCH)
-
-    ## load the padding-radius data
-    padding_rois = rois_bilateral(df, vertex_incol, RADIUS_PADDING)
-
-    ## if we are doing partial corr create a matrix of the network
-    if pcorr:
-        netmeants = pd.DataFrame(np.nan,
-                                    index = range(func_data.shape[1]),
-                                    columns = df['NETWORK'].unique())
-        for network in netmeants.columns:
-            netlabels = df[df.NETWORK == network].roiidx.tolist()
-            netmeants.loc[:,network] = calc_network_meants(func_data, sampling_rois, netlabels)
-
-
-    for idx in thisorder:
+def pint_move_vertex(df, idx, func_data, sampling_rois, search_rois, padding_rois, pcorr, netmeants):
+    '''
+    move one vertex in the pint algorithm
+    inputs:
+      df: the result dataframe
+      idx: this vertices row index
+      func_data: the numpy array read from the func_file
+      sampling_rois: the sampling rois (from which the meants is calculated)
+      search_rois: the search rois (the extent of the search radius)
+      padding_rois: the padding rois (the mask that prevent search spaces from overlapping)
+      run_pcorr: boolean for wether of not to use partial correlation
+      netmeants: netmeants object if running pcorr
+    '''
         vlabel = df.loc[idx,'roiidx']
         network = df.loc[idx,'NETWORK']
         hemi = df.loc[idx,'hemi']
@@ -325,38 +266,141 @@ while iter_num < 50 and max_distance > 1:
         if hemi =='R': peakvert = peakvert - num_Lverts
         df.loc[idx,vertex_outcol] = peakvert
 
-    ## calc the distances
-    df = calc_distance_column(df, vertex_incol, vertex_outcol, distance_outcol)
-    numNotDone = df.loc[df.loc[:,distance_outcol] > 0, 'roiidx'].count()
+        ## return the df
+        return df
 
-    ## print the max distance as things continue..
-    max_distance = max(df[distance_outcol])
-    print('Iteration {} \tmax distance: {}\tVertices Moved: {}'.format(iter_num, max_distance, numNotDone))
-    vertex_incol = vertex_outcol
-    iter_num += 1
+def iterate_pint(df, vertex_incol, func_data, pcorr):
+    '''
+    The main bit of pint
+    inputs:
+      df : the summary dataframe
+      vertex_incol: the name of the column to use as the template rois
+      func_data: the numpy array of the data
+      pcorr: wether or not to use partial correlation
+    return the summary dataframe
+    '''
+    iter_num = 0
+    max_distance = 10
 
-## calc a final distance column
-df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
-df  = calc_distance_column(df, 'tvertex', 'ivertex', 'distance', 150)
+    while iter_num < 50 and max_distance > 1:
+        vertex_outcol = 'vertex_{}'.format(iter_num)
+        distance_outcol = 'dist_{}'.format(iter_num)
+        df.loc[:,vertex_outcol] = -999
+        df.loc[:,distance_outcol] = -99.9
+        thisorder = df.index.tolist()
+        random.shuffle(thisorder)
 
-if outputall:
-    cols_to_export = list(df.columns.values)
-else:
-    cols_to_export = ['hemi','NETWORK','roiidx','tvertex','ivertex','distance']
-    if max_distance > 1:
-        cols_to_export.extend([distance_outcol, 'vertex_{}'.format(iter_num - 2)])
+        ## load the sampling data
+        sampling_rois = rois_bilateral(df, vertex_incol, RADIUS_SAMPLING)
 
-df.to_csv('{}_summary.csv'.format(output_prefix), columns = cols_to_export, index = False)
-## load the sampling data
+        ## load the search data
+        search_rois = rois_bilateral(df, vertex_incol, RADIUS_SEARCH)
 
-## output the tvertex meants
-sampling_rois = rois_bilateral(df, 'tvertex', RADIUS_SAMPLING)
-calc_sampling_meants(func_data, sampling_rois,
-outputcsv_name="{}_tvertex_meants.csv".format(output_prefix))
-## output the ivertex meants
-sampling_rois = rois_bilateral(df, 'ivertex', RADIUS_SAMPLING)
-calc_sampling_meants(func_data, sampling_rois,
-outputcsv_name="{}_ivertex_meants.csv".format(output_prefix))
+        ## load the padding-radius data
+        padding_rois = rois_bilateral(df, vertex_incol, RADIUS_PADDING)
 
-#get rid of the tmpdir
-shutil.rmtree(tmpdir)
+        ## if we are doing partial corr create a matrix of the network
+        if pcorr:
+            netmeants = pd.DataFrame(np.nan,
+                                        index = range(func_data.shape[1]),
+                                        columns = df['NETWORK'].unique())
+            for network in netmeants.columns:
+                netlabels = df[df.NETWORK == network].roiidx.tolist()
+                netmeants.loc[:,network] = calc_network_meants(func_data, sampling_rois, netlabels)
+        else: netmeants = None
+
+        ## run the pint_move_vertex function for each vertex
+        for idx in thisorder:
+            run the pint_move_vertex function for each vertex
+            df = pint_move_vertex(df, idx, func_data, sampling_rois, search_rois, padding_rois, pcorr, netmeants)
+
+        ## calc the distances
+        df = calc_distance_column(df, vertex_incol, vertex_outcol, distance_outcol)
+        numNotDone = df.loc[df.loc[:,distance_outcol] > 0, 'roiidx'].count()
+
+        ## print the max distance as things continue..
+        max_distance = max(df[distance_outcol])
+        print('Iteration {} \tmax distance: {}\tVertices Moved: {}'.format(iter_num, max_distance, numNotDone))
+        vertex_incol = vertex_outcol
+        iter_num += 1
+
+    ## calc a final distance column
+    df.loc[:,"ivertex"] = df.loc[:,vertex_outcol]
+    df  = calc_distance_column(df, 'tvertex', 'ivertex', 'distance', 150)
+
+    ## return the df
+    return df
+
+def main():
+    global DEBUG
+    global DRYRUN
+    global RADIUS_SAMPLING
+    global RADIUS_SEARCH
+    global RADIUS_PADDING
+
+    arguments     = docopt(__doc__)
+    func          = arguments['<func.dtseries.nii>']
+    surfL         = arguments['<left-surface.gii>']
+    surfR         = arguments['<right-surface.gii>']
+    origcsv       = arguments['<input-vertices.csv>']
+    output_prefix = arguments['<outputprefix>']
+    pcorr         = arguments['--pcorr']
+    outputall     = arguments['--outputall']
+    RADIUS_SAMPLING = arguments['--sampling-radius']
+    RADIUS_SEARCH = arguments['--search-radius']
+    RADIUS_PADDING = arguments['--padding-radius']
+    VERBOSE       = arguments['--verbose']
+    DEBUG         = arguments['--debug']
+    DRYRUN        = arguments['--dry-run']
+
+    #mkdir a tmpdir for the
+    tmpdir = tempfile.mkdtemp()
+
+    ###
+    if DEBUG: print(arguments)
+
+    ## loading the dataframe
+    df = pd.read_csv(origcsv)
+    if 'roiidx' not in df.columns:
+        df.loc[:,'roiidx'] = pd.Series(np.arange(1,len(df.index)+1), index=df.index)
+
+    ## load the func data
+    func_dataL, func_dataR = load_surfaceonly(func, tmpdir)
+    num_Lverts = func_dataL.shape[0]
+    func_data = np.vstack((func_dataL, func_dataR))
+
+    ## cp the surfaces to the tmpdir - this will cut down on i-o is tmpdir is ramdisk
+    tmp_surfL = os.path.join(tmpdir, 'surface.L.surf.gii')
+    tmp_surfR = os.path.join(tmpdir, 'surface.R.surf.gii')
+    docmd(['cp', surfL, tmp_surfL])
+    docmd(['cp', surfR ,tmp_surfR])
+    surfL = tmp_surfL
+    surfR = tmp_surfR
+
+    ## run the main iteration
+    df = iterate_pint(df, 'tvertex', func_data, pcorr)
+
+    if outputall:
+        cols_to_export = list(df.columns.values)
+    else:
+        cols_to_export = ['hemi','NETWORK','roiidx','tvertex','ivertex','distance']
+        if max_distance > 1:
+            cols_to_export.extend([distance_outcol, 'vertex_{}'.format(iter_num - 2)])
+
+    df.to_csv('{}_summary.csv'.format(output_prefix), columns = cols_to_export, index = False)
+    ## load the sampling data
+
+    ## output the tvertex meants
+    sampling_rois = rois_bilateral(df, 'tvertex', RADIUS_SAMPLING)
+    calc_sampling_meants(func_data, sampling_rois,
+    outputcsv_name="{}_tvertex_meants.csv".format(output_prefix))
+    ## output the ivertex meants
+    sampling_rois = rois_bilateral(df, 'ivertex', RADIUS_SAMPLING)
+    calc_sampling_meants(func_data, sampling_rois,
+    outputcsv_name="{}_ivertex_meants.csv".format(output_prefix))
+
+    #get rid of the tmpdir
+    shutil.rmtree(tmpdir)
+
+if __name__ == '__main__':
+    main()
