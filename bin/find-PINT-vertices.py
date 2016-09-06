@@ -12,15 +12,16 @@ Arguments:
     <outputprefix>         Output csv file
 
 Options:
-  --pcorr                  Use maximize partial correlaion within network (instead of pearson).
-  --sampling-radius MM     Radius [default: 4] in mm of sampling rois
-  --search-radius MM       Radius [default: 8] in mm of search rois
-  --padding-radius MM      Radius [default: 12] in mm for min distance between roi centers
-  --outputall              Output vertices from each iteration.
-  -v,--verbose             Verbose logging
-  --debug                  Debug logging in Erin's very verbose style
-  -n,--dry-run             Dry run
-  -h,--help                Print help
+  --pcorr                Use maximize partial correlaion within network (instead of pearson).
+  --sampling-radius MM   Radius [default: 4] in mm of sampling rois
+  --search-radius MM     Radius [default: 8] in mm of search rois
+  --padding-radius MM    Radius [default: 12] in mm for min distance between roi centers
+  --roi-limits ROIFILE   To limit rois, input a 4D dscalar file with one roi per roiidx
+  --outputall            Output vertices from each iteration.
+  -v,--verbose           Verbose logging
+  --debug                Debug logging in Erin's very verbose style
+  -n,--dry-run           Dry run
+  -h,--help              Print help
 
 DETAILS
 TBA
@@ -269,7 +270,7 @@ def pint_move_vertex(df, idx, vertex_incol, vertex_outcol, func_data, sampling_r
     ## return the df
     return df
 
-def iterate_pint(df, vertex_incol, func_data, pcorr, tmpdir):
+def iterate_pint(df, vertex_incol, func_data, pcorr, tmpdir, start_iter = 0):
     '''
     The main bit of pint
     inputs:
@@ -279,10 +280,10 @@ def iterate_pint(df, vertex_incol, func_data, pcorr, tmpdir):
       pcorr: wether or not to use partial correlation
     return the summary dataframe
     '''
-    iter_num = 0
+    iter_num = start_iter
     max_distance = 10
 
-    while iter_num < 50 and max_distance > 1:
+    while iter_num < (start_iter + 50) and max_distance > 1:
         vertex_outcol = 'vertex_{}'.format(iter_num)
         distance_outcol = 'dist_{}'.format(iter_num)
         df.loc[:,vertex_outcol] = -999
@@ -349,6 +350,7 @@ outputall     = arguments['--outputall']
 RADIUS_SAMPLING = arguments['--sampling-radius']
 RADIUS_SEARCH = arguments['--search-radius']
 RADIUS_PADDING = arguments['--padding-radius']
+roi_limits_file = arguments['--roi-limits']
 VERBOSE       = arguments['--verbose']
 DEBUG         = arguments['--debug']
 DRYRUN        = arguments['--dry-run']
@@ -379,6 +381,29 @@ surfR = tmp_surfR
 
 ## run the main iteration
 df, max_distance, distance_outcol, iter_num = iterate_pint(df, 'tvertex', func_data, pcorr, tmpdir)
+
+## if roi limits file is given... then test to see if any of the vertices are outside the roi limits
+if roi_limits_file:
+    ## read in the limits file
+    limitsL, limitsR = load_surfaceonly(roi_limits_file, tmpdir)
+    num_limLverts = limitsL.shape[0]
+    limits = np.vstack((limitsL, limitsR))
+    ## check if the roi has wandered outside the ROI limits
+    df.loc[:,'avertex'] = -99
+    all_good = True
+    for i in df.index.tolist():
+        thisivertex = df.loc[i,'ivertex']
+        if df.loc[i,'hemi']=='R':
+            thisivertex = thisivertex + num_limLverts
+        if limits[thisivertex,i] > 0:
+            df.loc[i,'avertex'] = df.loc[i,'ivertex']
+        else:
+            print('resetting roiidx {}'.format(df.loc[i,'roiidx']))
+            df.loc[i,'avertex'] = df.loc[i,'tvertex']
+            all_good = False
+    # if an roi is outside the limits.. set that roi back to teh tvertex and re-start iterating..
+    if not all_good:
+        df, max_distance, distance_outcol, iter_num = iterate_pint(df, 'avertex', func_data, pcorr, tmpdir, start_iter = 50)
 
 if outputall:
     cols_to_export = list(df.columns.values)
